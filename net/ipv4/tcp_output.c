@@ -48,6 +48,7 @@
 #include <linux/gfp.h>
 #include <linux/module.h>
 #include <linux/static_key.h>
+#include <linux/printk.h>
 
 #include <trace/events/tcp.h>
 
@@ -443,7 +444,8 @@ static void smc_options_write(__be32 *ptr, u16 *options)
  * (but it may well be that other scenarios fail similarly).
  */
 static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
-			      struct tcp_out_options *opts, struct sk_buff *skb)
+			      struct tcp_out_options *opts, struct sk_buff *skb,
+				int new_option_len)
 {
 	u16 options = opts->options;	/* mungable copy */
 
@@ -539,7 +541,7 @@ static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
 	smc_options_write(ptr, &options);
 
 	if (unlikely(OPTION_MPTCP & opts->options))
-		mptcp_options_write(ptr, tp, opts, skb);
+		mptcp_options_write(ptr, tp, opts, skb, new_option_len);
 }
 
 static void smc_set_option(const struct tcp_sock *tp,
@@ -1078,6 +1080,7 @@ int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
 	struct tcp_skb_cb *tcb;
 	struct tcp_out_options opts;
 	unsigned int tcp_options_size, tcp_header_size;
+	int new_option_len = 0;
 	struct sk_buff *oskb = NULL;
 	struct tcp_md5sig_key *md5;
 	struct tcphdr *th;
@@ -1112,8 +1115,19 @@ int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
 	else
 		tcp_options_size = tcp_established_options(sk, skb, &opts,
 							   &md5);
-	tcp_header_size = tcp_options_size + sizeof(struct tcphdr);
+	if (BPF_SOCK_OPS_TEST_FLAG(tp, BPF_SOCK_OPS_OPTION_WRITE_FLAG)) {
+		pr_err("tcp_options_size before: %d\n", tcp_options_size);
+		/* Call bpf_program to add the length of new MPTCP option */
+		/* We need to check if there are enough header space before adding option */
+		new_option_len = tcp_call_bpf_2arg(sk, BPF_TCP_OPTIONS_SIZE_CALC, 0, tcp_options_size);
+		if (new_option_len > 0)
+			tcp_options_size += new_option_len;
+	}
 
+	tcp_header_size = tcp_options_size + sizeof(struct tcphdr);
+	if (BPF_SOCK_OPS_TEST_FLAG(tp, BPF_SOCK_OPS_OPTION_WRITE_FLAG)) {
+		pr_err("tcp_options_size after: %d  tcp_header_size: %d\n", tcp_options_size, tcp_header_size);
+	}
 	/* if no packet is in qdisc/device queue, then allow XPS to select
 	 * another queue. We can be called from tcp_tsq_handler()
 	 * which holds one reference to sk_wmem_alloc.
@@ -1164,7 +1178,9 @@ int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
 		}
 	}
 
-	tcp_options_write((__be32 *)(th + 1), tp, &opts, skb);
+	tcp_options_write((__be32 *)(th + 1), tp, &opts, skb, new_option_len);
+	//int w = tcp_call_bpf(sk, BPF_MPTCP_OPTIONS_WRITE);
+
 	skb_shinfo(skb)->gso_type = sk->sk_gso_type;
 	if (likely(!(tcb->tcp_flags & TCPHDR_SYN))) {
 		th->window	= htons(tp->ops->select_window(sk));
@@ -3299,7 +3315,7 @@ struct sk_buff *tcp_make_synack(const struct sock *sk, struct dst_entry *dst,
 
 	/* RFC1323: The window in SYN & SYN/ACK segments is never scaled. */
 	th->window = htons(min(req->rsk_rcv_wnd, 65535U));
-	tcp_options_write((__be32 *)(th + 1), NULL, &opts, skb);
+	tcp_options_write((__be32 *)(th + 1), NULL, &opts, skb, 0);
 	th->doff = (tcp_header_size >> 2);
 	__TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTSEGS);
 
