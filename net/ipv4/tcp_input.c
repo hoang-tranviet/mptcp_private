@@ -5842,6 +5842,9 @@ discard:
 			return 0;
 		} else {
 			tcp_send_ack(sk);
+			mptcp_debug("%s: option_write flag: %d \n", __func__,
+				BPF_SOCK_OPS_TEST_FLAG(tp, BPF_SOCK_OPS_OPTION_WRITE_FLAG));
+
 		}
 		return -1;
 	}

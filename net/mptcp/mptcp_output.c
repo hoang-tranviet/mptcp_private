@@ -1151,6 +1151,8 @@ void mptcp_options_write(__be32 *ptr, struct tcp_sock *tp,
 			 const struct tcp_out_options *opts,
 			 struct sk_buff *skb)
 {
+	int w, len;
+
 	if (unlikely(OPTION_MP_CAPABLE & opts->mptcp_options)) {
 		struct mp_capable *mpc = (struct mp_capable *)ptr;
 
@@ -1314,6 +1316,21 @@ void mptcp_options_write(__be32 *ptr, struct tcp_sock *tp,
 
 		ptr += MPTCP_SUB_LEN_PRIO_ALIGN >> 2;
 	}
+
+	if (tp == NULL)
+		return;
+
+	if (BPF_SOCK_OPS_TEST_FLAG(tp, BPF_SOCK_OPS_OPTION_WRITE_FLAG)) {
+
+		w = tcp_call_bpf((struct sock *)tp, BPF_MPTCP_OPTIONS_WRITE, 0, NULL);
+		if (w != 0) {
+			len = (w << 16) >> 24; // get the third byte
+			pr_err("option to add: %x, len:%d\n", w, len);
+			*(int *)ptr = w;
+			ptr += sizeof(int) >> 2;
+		} else
+			pr_err("empty option in return, ignore\n");
+	}
 }
 
 /* Sends the datafin */
@@ -1447,6 +1464,7 @@ static void mptcp_ack_retransmit_timer(struct sock *sk)
 	skb_reserve(skb, MAX_TCP_HEADER);
 	tcp_init_nondata_skb(skb, tp->snd_una, TCPHDR_ACK);
 
+	mptcp_debug("%s: retransmit join ack \n", __func__);
 	MPTCP_INC_STATS(sock_net(sk), MPTCP_MIB_JOINACKRXMIT);
 
 	if (tcp_transmit_skb(sk, skb, 0, GFP_ATOMIC) > 0) {
@@ -1569,6 +1587,7 @@ int mptcp_retransmit_skb(struct sock *meta_sk, struct sk_buff *skb)
 
 	/* Update global TCP statistics. */
 	MPTCP_INC_STATS(sock_net(meta_sk), MPTCP_MIB_RETRANSSEGS);
+        mptcp_debug("%s: mptcp retrans\n", __func__);
 
 	/* Diff to tcp_retransmit_skb */
 
