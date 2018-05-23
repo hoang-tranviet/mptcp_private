@@ -429,6 +429,7 @@ static void smc_options_write(__be32 *ptr, u16 *options)
 struct tcp_out_options {
 	u16 options;		/* bit field of OPTION_* */
 	u16 mss;		/* 0 to disable */
+	u8 ext_len;		/* length of the new option inserted by ebpf */
 	u8 ws;			/* window scale, 0 to disable */
 	u8 num_sack_blocks;	/* number of SACK blocks to include */
 	u8 hash_size;		/* bytes in hash_location */
@@ -545,6 +546,25 @@ static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
 	}
 
 	smc_options_write(ptr, &options);
+
+	/* This happens with MPTCP stack, does it occur with vanilla TCP? */
+	if (tp == NULL)
+		return;
+
+	if (opts->ext_len > 0) {
+		/* TODO: support more than 4 bytes */
+		int w = tcp_call_bpf((struct sock *)tp, BPF_TCP_OPTIONS_WRITE,
+				     0, NULL);
+		if (w != 0) {
+			/* copy option data to the buffer*/
+			*(int *)ptr = w;
+			/* get the third byte, for little endian only
+			 * TODO: support both endianess styles
+			 */
+			int len = (w << 16) >> 24;
+			ptr += len;
+		}
+	}
 }
 
 static void smc_set_option(const struct tcp_sock *tp,
@@ -1018,6 +1038,7 @@ static int __tcp_transmit_skb(struct sock *sk, struct sk_buff *skb,
 	struct tcp_skb_cb *tcb;
 	struct tcp_out_options opts;
 	unsigned int tcp_options_size, tcp_header_size;
+	unsigned int ext_len = 0;
 	struct sk_buff *oskb = NULL;
 	struct tcp_md5sig_key *md5;
 	struct tcphdr *th;
@@ -1054,6 +1075,20 @@ static int __tcp_transmit_skb(struct sock *sk, struct sk_buff *skb,
 	else
 		tcp_options_size = tcp_established_options(sk, skb, &opts,
 							   &md5);
+	if (BPF_SOCK_OPS_TEST_FLAG(tp, BPF_SOCK_OPS_OPTION_WRITE_FLAG))
+	{
+		/* Call bpf_program to adjust the length of all TCP options
+		 * Need to check if header space is enough before adding option
+		 */
+		ext_len = tcp_call_bpf_2arg(sk, BPF_TCP_OPTIONS_SIZE_CALC,
+						  0, tcp_options_size);
+
+		if ((ext_len > 0)
+		 && (tcp_options_size + ext_len <= MAX_TCP_OPTION_SPACE)) {
+			tcp_options_size += ext_len;
+			opts.ext_len = ext_len;
+		}
+	}
 	tcp_header_size = tcp_options_size + sizeof(struct tcphdr);
 
 	/* if no packet is in qdisc/device queue, then allow XPS to select
@@ -3278,6 +3313,7 @@ struct sk_buff *tcp_make_synack(const struct sock *sk, struct dst_entry *dst,
 
 	/* RFC1323: The window in SYN & SYN/ACK segments is never scaled. */
 	th->window = htons(min(req->rsk_rcv_wnd, 65535U));
+	/* TODO: support inserting custom option into SYN/ACK packet */
 	tcp_options_write((__be32 *)(th + 1), NULL, &opts);
 	th->doff = (tcp_header_size >> 2);
 	__TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTSEGS);
