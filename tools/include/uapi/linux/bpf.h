@@ -3052,7 +3052,9 @@ struct bpf_sock_ops {
 #define BPF_SOCK_OPS_RTO_CB_FLAG	(1<<0)
 #define BPF_SOCK_OPS_RETRANS_CB_FLAG	(1<<1)
 #define BPF_SOCK_OPS_STATE_CB_FLAG	(1<<2)
-#define BPF_SOCK_OPS_ALL_CB_FLAGS       0x7		/* Mask of all currently
+#define BPF_SOCK_OPS_OPTION_WRITE_FLAG	(1<<3)	/* Flag to enable callback in
+						 * writing TCP/MPTCP option */
+#define BPF_SOCK_OPS_ALL_CB_FLAGS       0xf		/* Mask of all currently
 							 * supported cb flags
 							 */
 
@@ -3106,6 +3108,14 @@ enum {
 					 */
 	BPF_SOCK_OPS_TCP_LISTEN_CB,	/* Called on listen(2), right after
 					 * socket transition to LISTEN state.
+					 */
+	BPF_TCP_OPTIONS_SIZE_CALC,	/* Calls BPF program to re-adjust the
+					 * TCP options size
+					 * Arg1: currently unused
+					 * Arg2: tcp_options_size
+					 */
+	BPF_TCP_OPTIONS_WRITE,		/* Calls BPF program to insert a custom
+					 * TCP option
 					 */
 };
 
