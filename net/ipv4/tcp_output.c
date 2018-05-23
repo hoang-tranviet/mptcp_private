@@ -540,6 +540,22 @@ static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
 
 	if (unlikely(OPTION_MPTCP & opts->options))
 		mptcp_options_write(ptr, tp, opts, skb);
+
+	if (tp==NULL)
+		return;
+
+	if (opts->extending_len > 0) {
+
+		int w = tcp_call_bpf((struct sock *)tp, BPF_TCP_OPTIONS_WRITE, 0, NULL);
+
+		if (w != 0) {
+			int len = (w << 16) >> 24; // get the third byte
+			pr_debug("option to add: %x, len:%d\n", w, len);
+			*(int *)ptr = w;
+			ptr += len;
+		} else
+			pr_debug("empty option in return, ignore\n");
+	}
 }
 
 static void smc_set_option(const struct tcp_sock *tp,
@@ -1078,6 +1094,7 @@ int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
 	struct tcp_skb_cb *tcb;
 	struct tcp_out_options opts;
 	unsigned int tcp_options_size, tcp_header_size;
+	int extending_len = 0;
 	struct sk_buff *oskb = NULL;
 	struct tcp_md5sig_key *md5;
 	struct tcphdr *th;
@@ -1112,6 +1129,17 @@ int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
 	else
 		tcp_options_size = tcp_established_options(sk, skb, &opts,
 							   &md5);
+	if (BPF_SOCK_OPS_TEST_FLAG(tp, BPF_SOCK_OPS_OPTION_WRITE_FLAG))
+	{
+		/* Call bpf_program to adjust the length of all TCP options
+		 * Need to check if header space is enough before adding option
+		 */
+		extending_len = tcp_call_bpf_2arg(sk, BPF_TCP_OPTIONS_SIZE_CALC, 0, tcp_options_size);
+
+		opts.extending_len = extending_len;
+		tcp_options_size += extending_len;
+		pr_debug("tcp_options_size after: %d\n", tcp_options_size);
+	}
 	tcp_header_size = tcp_options_size + sizeof(struct tcphdr);
 
 	/* if no packet is in qdisc/device queue, then allow XPS to select
@@ -1165,6 +1193,7 @@ int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
 	}
 
 	tcp_options_write((__be32 *)(th + 1), tp, &opts, skb);
+
 	skb_shinfo(skb)->gso_type = sk->sk_gso_type;
 	if (likely(!(tcb->tcp_flags & TCPHDR_SYN))) {
 		th->window	= htons(tp->ops->select_window(sk));
@@ -3297,6 +3326,7 @@ struct sk_buff *tcp_make_synack(const struct sock *sk, struct dst_entry *dst,
 
 	/* RFC1323: The window in SYN & SYN/ACK segments is never scaled. */
 	th->window = htons(min(req->rsk_rcv_wnd, 65535U));
+	pr_debug("tcp_make_synack \n");
 	tcp_options_write((__be32 *)(th + 1), NULL, &opts, skb);
 	th->doff = (tcp_header_size >> 2);
 	__TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTSEGS);
