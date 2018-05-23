@@ -792,7 +792,7 @@ void mptcp_established_options(struct sock *sk, struct sk_buff *skb,
 			       struct tcp_out_options *opts, unsigned *size);
 void mptcp_options_write(__be32 *ptr, struct tcp_sock *tp,
 			 const struct tcp_out_options *opts,
-			 struct sk_buff *skb);
+			 struct sk_buff *skb, int new_option_len);
 void mptcp_close(struct sock *meta_sk, long timeout);
 int mptcp_doit(struct sock *sk);
 int mptcp_create_master_sk(struct sock *meta_sk, __u64 remote_key,
@@ -1358,7 +1358,7 @@ static inline void mptcp_established_options(struct sock *sk,
 					     unsigned *size) {}
 static inline void mptcp_options_write(__be32 *ptr, struct tcp_sock *tp,
 				       const struct tcp_out_options *opts,
-				       struct sk_buff *skb) {}
+				       struct sk_buff *skb, int new_option_len) {}
 static inline void mptcp_close(struct sock *meta_sk, long timeout) {}
 static inline int mptcp_doit(struct sock *sk)
 {

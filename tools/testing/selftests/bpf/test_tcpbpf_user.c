@@ -22,6 +22,28 @@
 #include <linux/perf_event.h>
 #include "test_tcpbpf.h"
 
+// copied from samples/bpf/bpf_load.c
+#define DEBUGFS "/sys/kernel/debug/tracing/"
+void read_trace_pipe(void)
+{
+	int trace_fd;
+
+	trace_fd = open(DEBUGFS "trace_pipe", O_RDONLY, 0);
+	if (trace_fd < 0)
+		return;
+
+	while (1) {
+		static char buf[4096];
+		ssize_t sz;
+
+		sz = read(trace_fd, buf, sizeof(buf));
+		if (sz > 0) {
+			buf[sz] = 0;
+			puts(buf);
+		}
+	}
+}
+
 static int bpf_find_map(const char *test, struct bpf_object *obj,
 			const char *name)
 {
@@ -40,6 +62,7 @@ static int bpf_find_map(const char *test, struct bpf_object *obj,
 		if (system(CMD)) {				\
 			printf("system(%s) FAILS!\n", CMD);	\
 		}						\
+		else printf("system(%s) PASS!\n", CMD);		\
 	} while (0)
 
 int main(int argc, char **argv)
@@ -60,8 +83,10 @@ int main(int argc, char **argv)
 		debug_flag = true;
 
 	dir = "/tmp/cgroupv2/foo";
+	SYSTEM("curl multipath-tcp.org");
 
 	if (stat(dir, &buffer) != 0) {
+		printf("stat not found, creating cgroup \n");
 		SYSTEM("mkdir -p /tmp/cgroupv2");
 		SYSTEM("mount -t cgroup2 none /tmp/cgroupv2");
 		SYSTEM("mkdir -p /tmp/cgroupv2/foo");
@@ -83,7 +108,8 @@ int main(int argc, char **argv)
 		goto err;
 	}
 
-	SYSTEM("./tcp_server.py");
+	//SYSTEM("sysctl -a|grep mptcp");
+	SYSTEM("curl multipath-tcp.org");
 
 	map_fd = bpf_find_map(__func__, obj, "global_map");
 	if (map_fd < 0)
@@ -99,9 +125,9 @@ int main(int argc, char **argv)
 	    g.data_segs_in != 1 || g.data_segs_out != 1 ||
 	    (g.event_map ^ 0x47e) != 0 || g.bad_cb_test_rv != 0x80 ||
 		g.good_cb_test_rv != 0) {
-		printf("FAILED: Wrong stats\n");
 		if (debug_flag) {
 			printf("\n");
+			read_trace_pipe();
 			printf("bytes_received: %d (expecting 501)\n",
 			       (int)g.bytes_received);
 			printf("bytes_acked:    %d (expecting 1002)\n",
@@ -123,6 +149,7 @@ int main(int argc, char **argv)
 	error = 0;
 err:
 	bpf_prog_detach(cg_fd, BPF_CGROUP_SOCK_OPS);
+	//SYSTEM("curl multipath-tcp.org");
 	return error;
 
 }
