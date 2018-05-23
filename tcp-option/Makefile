@@ -18,6 +18,7 @@ LDLIBS += -lcap -lelf -lrt -lpthread
 # Order correspond to 'make run_tests' order
 TEST_GEN_PROGS = test_tcp_user
 
+TEST_GEN_FILES = bpf_tcp_uto_kern.o
 
 # Compile but not part of 'make run_tests'
 TEST_GEN_PROGS_EXTENDED = test_libbpf_open
