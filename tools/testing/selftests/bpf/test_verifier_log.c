@@ -17,6 +17,25 @@
 
 #define err(str...)	printf("ERROR: " str)
 
+#ifndef __NR_bpf
+# if defined(__i386__)
+#  define __NR_bpf 357
+# elif defined(__x86_64__)
+#  define __NR_bpf 321
+# elif defined(__aarch64__)
+#  define __NR_bpf 280
+# elif defined(__sparc__)
+#  define __NR_bpf 349
+# elif defined(__arm__)
+#  define __NR_bpf 386
+# elif defined(__powerpc__)
+#  define __NR_bpf 361
+# elif defined(__s390__)
+#  define __NR_bpf 351
+# else
+#  error __NR_bpf not defined. Update kernel headers.
+# endif
+#endif
 static const struct bpf_insn code_sample[] = {
 	/* We need a few instructions to pass the min log length */
 	BPF_MOV64_IMM(BPF_REG_0, 0),
