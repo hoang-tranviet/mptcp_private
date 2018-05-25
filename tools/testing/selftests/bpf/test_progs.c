@@ -39,6 +39,26 @@ typedef __u16 __sum16;
 #include "bpf_endian.h"
 #include "bpf_rlimit.h"
 
+#ifndef __NR_bpf
+# if defined(__i386__)
+#  define __NR_bpf 357
+# elif defined(__x86_64__)
+#  define __NR_bpf 321
+# elif defined(__aarch64__)
+#  define __NR_bpf 280
+# elif defined(__sparc__)
+#  define __NR_bpf 349
+# elif defined(__arm__)
+#  define __NR_bpf 386
+# elif defined(__powerpc__)
+#  define __NR_bpf 361
+# elif defined(__s390__)
+#  define __NR_bpf 351
+# else
+#  error __NR_bpf not defined. Update kernel headers.
+# endif
+#endif
+
 static int error_cnt, pass_cnt;
 
 #define MAGIC_BYTES 123
