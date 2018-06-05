@@ -3544,10 +3544,11 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 			case TCP_BPF_SNDCWND_CLAMP:
 				if (val <= 0) {
 					ret = -EINVAL;
-				} else {
-					tp->snd_cwnd_clamp = val;
-					tp->snd_ssthresh = val;
+				break;
 				}
+				if (mptcp(tp))	pr_err("setsockopt on mptcp socket\n");
+				tp->snd_cwnd_clamp = val;
+				tp->snd_ssthresh = val;
 				break;
 			default:
 				ret = -EINVAL;
@@ -3581,14 +3582,21 @@ BPF_CALL_5(bpf_getsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 
 #ifdef CONFIG_INET
 	if (level == SOL_TCP && sk->sk_prot->getsockopt == tcp_getsockopt) {
-		if (optname == TCP_CONGESTION) {
+		switch (optname) {
+		case TCP_CONGESTION:
+			{
 			struct inet_connection_sock *icsk = inet_csk(sk);
 
 			if (!icsk->icsk_ca_ops || optlen <= 1)
 				goto err_clear;
 			strncpy(optval, icsk->icsk_ca_ops->name, optlen);
 			optval[optlen - 1] = 0;
-		} else {
+			break;
+			}
+		case TCP_BPF_SNDCWND_CLAMP:
+			*((int *)optval) = (int) tcp_sk(sk)->snd_cwnd_clamp;
+			break;
+		default:
 			goto err_clear;
 		}
 	} else if (level == SOL_IP) {

@@ -1811,8 +1811,17 @@ void mptcp_parse_options(const uint8_t *ptr, int opsize,
 
 		break;
 	default:
-		mptcp_debug("%s: Received unkown subtype: %d\n",
-			    __func__, mp_opt->sub);
+		mptcp_debug("%s: Received unknown subtype: %d, len: %d\n",
+			    __func__, mp_opt->sub, opsize);
+		if (tp == NULL) {
+			pr_err("%s: tp is null!\n", __func__);
+			break;
+		}
+		unsigned int data = 0;
+		int call;
+		memcpy(&data, ptr, opsize);
+		call = tcp_call_bpf_3arg((struct sock *)tp, BPF_MPTCP_PARSE_OPTIONS,
+					mp_opt->sub, opsize, data);
 		break;
 	}
 }
