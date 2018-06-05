@@ -83,7 +83,8 @@ int main(int argc, char **argv)
 		debug_flag = true;
 
 	dir = "/tmp/cgroupv2/foo";
-	SYSTEM("curl multipath-tcp.org");
+	//SYSTEM("sysctl  net.mptcp");
+	SYSTEM("./mptcp_server.py");
 
 	if (stat(dir, &buffer) != 0) {
 		printf("stat not found, creating cgroup \n");
@@ -108,8 +109,9 @@ int main(int argc, char **argv)
 		goto err;
 	}
 
-	//SYSTEM("sysctl -a|grep mptcp");
-	SYSTEM("curl multipath-tcp.org");
+	//SYSTEM("sysctl  net.mptcp");
+	//SYSTEM("curl multipath-tcp.org");
+	SYSTEM("./mptcp_server.py");
 
 	map_fd = bpf_find_map(__func__, obj, "global_map");
 	if (map_fd < 0)
