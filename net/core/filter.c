@@ -3521,6 +3521,7 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 							 reinit);
 		} else {
 			struct tcp_sock *tp = tcp_sk(sk);
+			struct inet_connection_sock *icsk = inet_csk(sk);
 
 			if (optlen != sizeof(int))
 				return -EINVAL;
@@ -3541,6 +3542,13 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 					tp->snd_cwnd_clamp = val;
 					tp->snd_ssthresh = val;
 				}
+				break;
+			case TCP_BPF_USER_TIMEOUT:
+				if (val <= 0) {
+					ret = -EINVAL;
+					break;
+				}
+				icsk->icsk_user_timeout = msecs_to_jiffies(val)*1000;
 				break;
 			default:
 				ret = -EINVAL;
@@ -3574,13 +3582,17 @@ BPF_CALL_5(bpf_getsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 
 #ifdef CONFIG_INET
 	if (level == SOL_TCP && sk->sk_prot->getsockopt == tcp_getsockopt) {
+		struct inet_connection_sock *icsk = inet_csk(sk);
+
 		if (optname == TCP_CONGESTION) {
-			struct inet_connection_sock *icsk = inet_csk(sk);
 
 			if (!icsk->icsk_ca_ops || optlen <= 1)
 				goto err_clear;
 			strncpy(optval, icsk->icsk_ca_ops->name, optlen);
 			optval[optlen - 1] = 0;
+		}
+		else if (optname == TCP_BPF_USER_TIMEOUT) {
+			*((int *)optval) = (int)jiffies_to_msecs(icsk->icsk_user_timeout)/1000;
 		} else {
 			goto err_clear;
 		}
