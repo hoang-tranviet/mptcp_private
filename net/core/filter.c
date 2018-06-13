@@ -4289,6 +4289,7 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 							 reinit);
 		} else {
 			struct tcp_sock *tp = tcp_sk(sk);
+			struct inet_connection_sock *icsk = inet_csk(sk);
 
 			if (optlen != sizeof(int))
 				return -EINVAL;
@@ -4315,6 +4316,12 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 					ret = -EINVAL;
 				else
 					tp->save_syn = val;
+				break;
+			case TCP_BPF_USER_TIMEOUT:
+				if (val <= 0)
+					ret = -EINVAL;
+				else
+					icsk->icsk_user_timeout = val;
 				break;
 			default:
 				ret = -EINVAL;
@@ -4367,6 +4374,10 @@ BPF_CALL_5(bpf_getsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 				goto err_clear;
 			memcpy(optval, tp->saved_syn + 1, optlen);
 			break;
+		case TCP_BPF_USER_TIMEOUT:
+			icsk = inet_csk(sk);
+
+			*((int *)optval) = (int)icsk->icsk_user_timeout;
 		default:
 			goto err_clear;
 		}
