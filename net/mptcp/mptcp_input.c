@@ -2241,6 +2241,7 @@ int mptcp_rcv_synsent_state_process(struct sock *sk, struct sock **skptr,
 				    const struct mptcp_options_received *mopt)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
+	struct net_device *dev;
 
 	if (mptcp(tp)) {
 		u8 hash_mac_check[20];
@@ -2332,6 +2333,39 @@ fallback:
 	if (mptcp(tp))
 		tp->mptcp->rcv_isn = TCP_SKB_CB(skb)->seq;
 
+
+	/* Hook to pass interface type and id of the subflow to bpf program */
+	/*int ifindex = sk->sk_bound_dev_if;
+	mptcp_debug("%s: ifindex: %d inet_sk ifindex %d\n",
+			__func__, ifindex, inet_sk(sk)->rx_dst_ifindex);
+	dev = dev_get_by_index(sock_net(sk), ifindex);
+	*/
+	mptcp_debug("%s: skb_iif: %d \n",
+			__func__, skb->skb_iif);
+
+	dev = dev_get_by_index(sock_net(sk), skb->skb_iif);
+
+	if (dev == NULL) {
+		mptcp_debug("%s: dev is NULL\n", __func__);
+	} else {
+		char ifname[1024];
+		int ret;
+		int id = 0;
+		netdev_get_name(sock_net(sk), ifname, skb->skb_iif);
+		mptcp_debug("%s: dev->type: %d  name: %s \n",
+				__func__, dev->type, ifname);
+
+		if (mptcp(tp))
+			id = (int) tp->mptcp->path_index;
+
+		ret = tcp_call_bpf_2arg(sk, BPF_MPTCP_ADD_SOCK, id, dev->type);
+		mptcp_debug("%s: meta:%d id:%d fullsock:%d \n", 
+				__func__, is_meta_sk(sk), id, sk_fullsock(sk));
+		mptcp_debug("%s: tcp_call_bpf ret: %d \n", __func__, ret);
+
+		/* Release reference to device */
+		dev_put(dev);
+	}
 	return 0;
 }
 

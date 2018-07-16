@@ -1169,6 +1169,9 @@ enum {
 					 * Arg1: tcp_options_size */
 	BPF_MPTCP_OPTIONS_WRITE,	/* Called when writing MPTCP option */
 	BPF_MPTCP_PARSE_OPTIONS,	/* Called when parser sees new MPTCP option */
+
+	BPF_MPTCP_ADD_SOCK,		/* Called when a new sock is added to
+					 * an MPTCP connection */
 };
 
 /* List of TCP states. There is a build check in net/ipv4/tcp.c to detect
