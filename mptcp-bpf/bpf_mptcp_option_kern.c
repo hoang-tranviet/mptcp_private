@@ -3,6 +3,7 @@
 #include <string.h>
 #include <linux/bpf.h>
 #include <linux/if_ether.h>
+#include <linux/if_arp.h>
 #include <linux/if_packet.h>
 #include <linux/ip.h>
 #include <linux/types.h>
@@ -74,7 +75,8 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 
 	update_event_map(op);
 	char fmt0[] = "tcp connect callback\n";
-	char fmt1[] = "active established callback\n";
+	char fmt1[] = "subflow id: %u \t dev->type: %u\n";
+	char fmt2[] = "active established callback\n";
 	char fmt4[] = "BPF_TCP_OPTIONS_SIZE_CALC  \t original:%d extend:%d bytes more\n";
 	char fmt3[] = "BPF_MPTCP_OPTIONS_WRITE \n";
 	char fmt10[] = "BPF_MPTCP_PARSE_OPTIONS: %d, %d, %x\n";
@@ -84,13 +86,24 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 	case BPF_SOCK_OPS_TCP_CONNECT_CB:
 		bpf_trace_printk(fmt0, sizeof(fmt0));
 		break;
-	case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
-		/* Set specific callback */
-		good_call_rv = bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_OPTION_WRITE_FLAG);
-		/* This activates all conditional call back: RTO, Retrans, State changed, and option write */
-		// good_call_rv = bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_ALL_CB_FLAGS);
-		bpf_trace_printk(fmt1, sizeof(fmt1));
+	case BPF_MPTCP_SYNACK_ARRIVED:
+	{
+		unsigned int id = skops->args[0];
+		unsigned int dev_type = skops->args[1];
+		bpf_trace_printk(fmt1, sizeof(fmt1), id, dev_type);
+
+		/* master subflow has id = 1
+		 * dev_type should be cellular iface instead,
+		 * this is just for testing */
+		if (id != 1  &&  dev_type == ARPHRD_LOOPBACK) {
+			/* Enable option write callback on this subflow */
+			good_call_rv = bpf_sock_ops_cb_flags_set( skops,
+						BPF_SOCK_OPS_OPTION_WRITE_FLAG);
+			rv = 1;
+		}
+		else rv = 10;
 		break;
+	}
 	case BPF_TCP_OPTIONS_SIZE_CALC:
 		/* args[1] is the second argument */
 		if (skops->args[1] + option_len <= 40) {

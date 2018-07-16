@@ -1169,6 +1169,12 @@ enum {
 					 * Arg1: tcp_options_size */
 	BPF_MPTCP_OPTIONS_WRITE,	/* Called when writing MPTCP option */
 	BPF_MPTCP_PARSE_OPTIONS,	/* Called when parser sees new MPTCP option */
+
+	BPF_MPTCP_SYNACK_ARRIVED,	/* Called when an MPTCP SYN-ACK arrived
+					 * could be either MP_CAPABLE or MP_JOIN
+					 * Arg1: subflow ID
+					 * Arg2: net_dev type
+					 */
 };
 
 /* List of TCP states. There is a build check in net/ipv4/tcp.c to detect
