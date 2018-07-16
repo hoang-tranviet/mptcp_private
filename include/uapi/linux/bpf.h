@@ -1163,6 +1163,11 @@ enum {
 					 * Arg1: old_state
 					 * Arg2: new_state
 					 */
+	BPF_MPTCP_SYNACK_ARRIVED,	/* Called when an MPTCP SYN-ACK arrived
+					 * could be either MP_CAPABLE or MP_JOIN
+					 * Arg1: subflow ID
+					 * Arg2: net_dev type
+					 */
 };
 
 /* List of TCP states. There is a build check in net/ipv4/tcp.c to detect
