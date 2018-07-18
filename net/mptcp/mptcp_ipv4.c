@@ -33,6 +33,7 @@
 #include <linux/skbuff.h>
 #include <linux/spinlock.h>
 #include <linux/tcp.h>
+#include <net/cls_cgroup.h>
 
 #include <net/inet_common.h>
 #include <net/inet_connection_sock.h>
@@ -263,6 +264,8 @@ int mptcp_init4_subsockets(struct sock *meta_sk, const struct mptcp_loc4 *loc,
 	struct sockaddr_in loc_in, rem_in;
 	struct socket_alloc sock_full;
 	struct socket *sock = (struct socket *)&sock_full;
+	struct cgroup *cg_meta;
+	struct cgroup *cg_sub;
 	int ret;
 
 	/** First, create and prepare the new socket */
@@ -279,6 +282,16 @@ int mptcp_init4_subsockets(struct sock *meta_sk, const struct mptcp_loc4 *loc,
 
 	sk = sock->sk;
 	tp = tcp_sk(sk);
+
+	cg_meta = sock_cgroup_ptr(&meta_sk->sk_cgrp_data);
+	cg_sub  = sock_cgroup_ptr(&sk->sk_cgrp_data);
+
+	if ((cg_meta) && (cg_sub)) {
+		/* copy sk_cgrp_data from meta_sk to new subflow sk */
+		memcpy(&sk->sk_cgrp_data, &meta_sk->sk_cgrp_data, sizeof(struct sock_cgroup_data));
+
+		cg_sub = sock_cgroup_ptr(&sk->sk_cgrp_data);
+	}
 
 	/* All subsockets need the MPTCP-lock-class */
 	lockdep_set_class_and_name(&(sk)->sk_lock.slock, &meta_slock_key, meta_slock_key_name);
