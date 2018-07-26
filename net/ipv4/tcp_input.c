@@ -3149,6 +3149,30 @@ static int tcp_clean_rtx_queue(struct sock *sk, u32 prior_fack,
 	rtt_update = tcp_ack_update_rtt(sk, flag, seq_rtt_us, sack_rtt_us,
 					ca_rtt_us, sack->rate);
 
+	int rtt = tp->srtt_us / 8000;
+
+	if (mptcp(tp) && tp->mpcb->server_side)
+		mptcp_debug("(server) rtt: %d ms\n", rtt);
+
+	if (mptcp(tp)
+	    && tp->mpcb->backup_sfs_mode
+	    && rtt > tp->mpcb->rtt_threshold) {
+
+		struct mptcp_tcp_sock *mptcp;
+
+		mptcp_for_each_sub(tp->mpcb, mptcp) {
+			struct sock *sk = mptcp_to_sock(mptcp);
+			struct tcp_sock *tp = tcp_sk(sk);
+			if (tp->mptcp->low_prio == 1)
+				mptcp_debug("activating sf: %u \t low_prio\n", tp->mptcp->path_index);
+			if (tp->mptcp->rcv_low_prio == 1)
+				mptcp_debug("activating sf: %u \t rcv_low_prio\n", tp->mptcp->path_index);
+			// set all sf as active
+			tp->mptcp->low_prio = 0;
+			tp->mptcp->rcv_low_prio = 0;
+		}
+	}
+
 	if (flag & FLAG_ACKED) {
 		flag |= FLAG_SET_XMIT_TIMER;  /* set TLP or RTO timer */
 		if (unlikely(icsk->icsk_mtup.probe_size &&

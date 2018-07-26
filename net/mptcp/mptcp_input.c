@@ -2352,8 +2352,8 @@ fallback:
 		int ret;
 		int id = 0;
 		netdev_get_name(sock_net(sk), ifname, skb->skb_iif);
-		mptcp_debug("%s: dev->type: %d  name: %s \n",
-				__func__, dev->type, ifname);
+		// mptcp_debug("%s: dev->type: %d  name: %s \n",
+		//		__func__, dev->type, ifname);
 
 		if (mptcp(tp))
 			id = (int) tp->mptcp->path_index;
