@@ -2345,13 +2345,14 @@ fallback:
 	}
 	char ifname[1024];
 	netdev_get_name(sock_net(sk), ifname, skb->skb_iif);
-	mptcp_debug("%s: dev->type: %d  name: %s \n", __func__, dev->type, ifname);
+	//mptcp_debug("%s: dev->type: %d  name: %s \n", __func__, dev->type, ifname);
 
 	int id = 0;
 	if (mptcp(tp))	id = (int) tp->mptcp->path_index;
 
 	int ret = tcp_call_bpf_2arg(sk, BPF_MPTCP_ADD_SOCK, id, dev->type);
-	mptcp_debug("%s: meta:%d id:%d fullsock:%d \t tcp_call_bpf ret: %d \n", __func__, is_meta_sk(sk), id, sk_fullsock(sk), ret);
+	mptcp_debug("(server) %s: meta:%d id:%d fullsock:%d \t tcp_call_bpf ret: %d \n",
+			 __func__, is_meta_sk(sk), id, sk_fullsock(sk), ret);
 
 	/* Release reference to device */
 	dev_put(dev);

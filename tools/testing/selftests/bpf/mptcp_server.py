@@ -37,7 +37,7 @@ time.sleep(0.1)
 ip = get_local_ip()
 
 # blocking call to curl client
-client = subprocess.call("curl "+ str(ip) +':'+ str(serverPort) + "/vmlinux.o --limit-rate 1K -o /dev/null", shell=True)
+client = subprocess.call("curl "+ str(ip) +':'+ str(serverPort) + "/vmlinux.o  -m 2  --limit-rate 1K -o /dev/null", shell=True)
 
 server.kill()
 tcpdump.kill()

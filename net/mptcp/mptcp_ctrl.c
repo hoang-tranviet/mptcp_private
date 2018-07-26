@@ -1295,6 +1295,9 @@ static int mptcp_alloc_mpcb(struct sock *meta_sk, __u64 remote_key,
 	mpcb->orig_sk_sndbuf = meta_sk->sk_sndbuf;
 	mpcb->orig_window_clamp = meta_tp->window_clamp;
 
+	mpcb->rtt_threshold = 0x7FFFFFFF;	/* set initial threshold as maximum signed integer */
+	mpcb->backup_sfs_mode = 0;
+
 	/* The meta is directly linked - set refcnt to 1 */
 	refcount_set(&mpcb->mpcb_refcnt, 1);
 
