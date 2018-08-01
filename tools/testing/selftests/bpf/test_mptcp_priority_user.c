@@ -81,7 +81,6 @@ int main(int argc, char **argv)
 		debug_flag = true;
 
 	dir = "/tmp/cgroupv2/foo";
-	//SYSTEM("./mptcp_server.py");
 
 	if (stat(dir, &buffer) != 0) {
 		printf("stat not found, creating cgroup \n");
@@ -107,7 +106,7 @@ int main(int argc, char **argv)
 	}
 
 	//SYSTEM("curl multipath-tcp.org");
-	SYSTEM("./mptcp_server.py");
+	SYSTEM("./my_net.sh");
 	if (debug_flag) {
 		printf("\n");
 		read_trace_pipe();
@@ -116,7 +115,6 @@ int main(int argc, char **argv)
 	error = 0;
 err:
 	bpf_prog_detach(cg_fd, BPF_CGROUP_SOCK_OPS);
-	//SYSTEM("curl multipath-tcp.org");
 	return error;
 
 }
