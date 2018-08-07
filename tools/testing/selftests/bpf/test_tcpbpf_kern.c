@@ -14,32 +14,9 @@
 #include "bpf_endian.h"
 #include "test_tcpbpf.h"
 
-struct bpf_map_def SEC("maps") global_map = {
-	.type = BPF_MAP_TYPE_ARRAY,
-	.key_size = sizeof(__u32),
-	.value_size = sizeof(struct tcpbpf_globals),
-	.max_entries = 2,
-};
-
-static inline void update_event_map(int event)
-{
-	__u32 key = 0;
-	struct tcpbpf_globals g, *gp;
-
-	gp = bpf_map_lookup_elem(&global_map, &key);
-	if (gp == NULL) {
-		struct tcpbpf_globals g = {0};
-
-		g.event_map |= (1 << event);
-		bpf_map_update_elem(&global_map, &key, &g,
-			    BPF_ANY);
-	} else {
-		g = *gp;
-		g.event_map |= (1 << event);
-		bpf_map_update_elem(&global_map, &key, &g,
-			    BPF_ANY);
-	}
-}
+/* This bpf program is to let a client to signal the server (via an MPTCP option)
+ * to cap the bandwidth of a subflow on server-side (by setting cwnd clamp)
+ */
 
 #define bswap_32(x) ((unsigned int)__builtin_bswap32(x))
 
@@ -57,51 +34,41 @@ struct mptcp_option mp_opt = {
 	.len = 4,
 	.subtype = 15,
 	.rsv = 0,
-	.data = 0xFF,
+	.data = 0xFF, // bw in KBps
 };
 
 SEC("sockops")
 int bpf_testcb(struct bpf_sock_ops *skops)
 {
 	int rv = -1;
-	int bad_call_rv = 0;
-	int good_call_rv = 0;
 	int op;
 	int v = 0;
 	int option_len = sizeof(mp_opt);
-	int option_buffer;
-	int header_len;
-	unsigned int clamp;
+
 
 	op = (int) skops->op;
 
-	update_event_map(op);
-	char fmt0[] = "tcp connect callback\n";
-	char fmt1[] = "subflow id: %u \t dev->type: %u\n";
-	char fmt2[] = "active established callback\n";
-	char fmt4[] = "BPF_TCP_OPTIONS_SIZE_CALC  \t original:%d extend:%d bytes more\n";
-	char fmt3[] = "BPF_MPTCP_OPTIONS_WRITE \n";
-	char fmt10[] = "BPF_MPTCP_PARSE_OPTIONS: %d, %d, %x\n";
-	char fmt11[] = "real window clamp = %d \n";
-
 	switch (op) {
 	case BPF_SOCK_OPS_TCP_CONNECT_CB:
+	{
+		char fmt0[] = "tcp connect callback\n";
 		bpf_trace_printk(fmt0, sizeof(fmt0));
 		break;
-	//case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
+	}
 	case BPF_MPTCP_ADD_SOCK:
 	{
 		unsigned int id = skops->args[0];
 		unsigned int dev_type = skops->args[1];
+		char fmt1[] = "subflow id: %u \t dev->type: %u\n";
 		bpf_trace_printk(fmt1, sizeof(fmt1), id, dev_type);
 
 		/* master subflow has id = 1
 		 * dev_type should be cellular iface instead,
 		 * this is just for testing */
-		if (id != 1  &&  dev_type == ARPHRD_LOOPBACK) {
+		//if (id != 1  &&  dev_type == ARPHRD_LOOPBACK) {
+		if (id != 1) {
 			/* Enable option write callback on this subflow */
-			good_call_rv = bpf_sock_ops_cb_flags_set( skops,
-						BPF_SOCK_OPS_OPTION_WRITE_FLAG);
+			bpf_sock_ops_cb_flags_set( skops, BPF_SOCK_OPS_OPTION_WRITE_FLAG);
 			rv = 1;
 		}
 		else rv = 10;
@@ -111,37 +78,57 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		/* args[1] is the second argument */
 		if (skops->args[1] + option_len <= 40) {
 			rv = option_len;
+			char fmt4[] = "OPTIONS_SIZE_CALC   original:%d add:%d bytes\n";
 			bpf_trace_printk(fmt4, sizeof(fmt4), skops->args[1], option_len);
 		}
 		else rv = 0;
 		break;
 	case BPF_MPTCP_OPTIONS_WRITE:
-		/* put the struct option into the reply value */
+	{
+		char fmt3[] = "OPTIONS_WRITE \n\n";
 		bpf_trace_printk(fmt3, sizeof(fmt3));
+
+		int option_buffer;
 		// skops->reply_long = mp_opt;
 		memcpy(&option_buffer, &mp_opt, sizeof(int));
+		/* put the struct option into the reply value */
 		rv = option_buffer;
 		break;
+	}
 	case BPF_MPTCP_PARSE_OPTIONS:
-		/* This is on subflow or meta socket? */
+	{
+		unsigned int clamp, bw, rtt;
+
 		bpf_getsockopt(skops, IPPROTO_TCP, TCP_BPF_SNDCWND_CLAMP, &clamp, sizeof(clamp));
+		char fmt11[] = "effective window clamp before = %d \n";
 		bpf_trace_printk(fmt11, sizeof(fmt11), clamp);
 
 		/* get the parsed option, swap to little-endian */
 		unsigned int option = bswap_32(skops->args[2]);
-		/* Keep the last 16 bits */
-		clamp = option & 0x0000FFFF;
-		//clamp = option >> 16;
+		/* Keep the last 8 bits */
+		bw = option & 0x000000FF;
+
+		rtt = (skops->srtt_us >> 3)/1000;
+
+		char fmt10[] = "parse options: %d, %d, %x\n";
 		bpf_trace_printk(fmt10, sizeof(fmt10),  skops->args[0], skops->args[1],
 							option);
-		/* This is on subflow or meta socket? */
-		rv = bpf_setsockopt(skops, IPPROTO_TCP,
-					    TCP_BPF_SNDCWND_CLAMP,
-					    &clamp, sizeof(clamp));
+
+		char fmt12[] = "requested bw: %u KB/s   rtt:%u ms   snd_cwnd: %u\n";
+		bpf_trace_printk(fmt12, sizeof(fmt12), bw, rtt, skops->snd_cwnd);
+
+		if (rtt == 0)
+			break;
+		clamp = bw*rtt;
+
+		rv = bpf_setsockopt(skops, IPPROTO_TCP, TCP_BPF_SNDCWND_CLAMP,
+							&clamp, sizeof(clamp));
 
 		bpf_getsockopt(skops, IPPROTO_TCP, TCP_BPF_SNDCWND_CLAMP, &clamp, sizeof(clamp));
-		bpf_trace_printk(fmt11, sizeof(fmt11), clamp);
+		char fmt13[] = "effective window clamp after = %d \n";
+		bpf_trace_printk(fmt13, sizeof(fmt13), clamp);
 		break;
+	}
 	default:
 		rv = -1;
 	}
