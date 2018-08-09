@@ -74,23 +74,23 @@ $NS_BR ip link set up dev br
 
 #add delay and bw
 # for client-to-server traffic
-$NS_BR tc qdisc add dev ethBr1 handle 1: root   htb default 11
-$NS_BR tc class add dev ethBr1 parent 1:    classid 1:11 htb rate 10kbps
-$NS_BR tc qdisc add dev ethBr1 parent 1:11 handle 12:0 netem delay 20ms
+$NS_BR tc qdisc add dev ethBr1 root handle 5:  tbf rate 2000kbit  burst 10000 latency 10ms
+#$NS_BR tc class add dev ethBr1 parent 1:    classid 1:11 htb rate 10kbps
+#$NS_BR tc qdisc add dev ethBr1 parent 1:11 handle 12:0 netem delay 20ms
 # will crash
-#$NS_BR tc qdisc add dev ethBr1 parent 12:0  fq_codel limit 1000  target 3ms  interval 40ms
+#$NS_BR tc qdisc add dev ethBr1 parent 5:0  fq_codel limit 1000  target 3ms  interval 40ms
 
 # for server-to-client traffic
-$NS_BR tc qdisc add dev ethBr2 handle 1: root   htb default 11
-$NS_BR tc class add dev ethBr2 parent 1:    classid 1:11 htb rate 10kbps
-$NS_BR tc qdisc add dev ethBr2 parent 1:11 handle 12:0 netem delay 20ms
+$NS_BR tc qdisc add dev ethBr2 root handle 6:  tbf rate 2000kbit  burst 10000 latency 10ms
+# has no effect
+#$NS_BR tc qdisc add dev ethBr2 parent 6:0  fq_codel limit 1000  target 3ms  interval 40ms
 
 # has no effect
-$NS_BR tc qdisc add dev br root  fq_codel limit 1000  target 3ms  interval 40ms
+#$NS_BR tc qdisc add dev br root  fq_codel limit 1000  target 3ms  interval 40ms
 
 
-$NS1 ethtool -K veth1 tso off gso off gro off
-$NS2 ethtool -K veth2 tso off gso off gro off
+$NS1 ethtool -K veth1 tso off gso off gro off  2> /dev/null
+$NS2 ethtool -K veth2 tso off gso off gro off  2> /dev/null
 
 serverIP="10.1.1.1"
 serverPort=80
@@ -98,20 +98,21 @@ time=`date +%s`
 dump_server=$time+"-server.pcap"
 dump_client=$time+"-client.pcap"
 
-$NS1  tcpdump -i veth1 -w dump_server &
-$NS2  tcpdump -i veth2 -w dump_client &
+#$NS1  tcpdump -i veth1 -w dump_server &
+#$NS2  tcpdump -i veth2 -w dump_client &
 $NS_BR  tcpdump -i ethBr1 -w dump_server_br &
 $NS_BR  tcpdump -i ethBr2 -w dump_client_br &
+$NS_BR  tcpdump -i br -w dump_br &
 
 
 $NS1  python3 -m http.server 80 &
 
 sleep 1
 
-# client will self-terminate in 3 seconds
-$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 3  -o /dev/null
+# client will self-terminate in (-m) seconds
+$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 1  -o /dev/null
 
-pkill tcpdump
+#pkill tcpdump
 pkill tcpdump
 pkill tcpdump
 pkill tcpdump
