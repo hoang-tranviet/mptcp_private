@@ -3568,6 +3568,14 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 				}
 				tp->mpcb->rtt_threshold = val;
 				break;
+			case MPTCP_ACK_BYTES_THRESHOLD:
+				if (!mptcp(tp)) {
+					pr_err("not an MPTCP connection!\n");
+					ret = -EINVAL;
+					break;
+				}
+				tp->mpcb->acked_bytes_threshold = val;
+				break;
 			default:
 				ret = -EINVAL;
 			}
@@ -3622,6 +3630,15 @@ BPF_CALL_5(bpf_getsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 				break;
 				}
 			*((int *)optval) = (int) tp->mpcb->rtt_threshold;
+			break;
+			}
+		case MPTCP_ACK_BYTES_THRESHOLD: {
+			struct tcp_sock *tp = tcp_sk(sk);
+			if (!mptcp(tp)) {
+				pr_err("not an MPTCP connection!\n");
+				break;
+				}
+			*((int *)optval) = (int) tp->mpcb->acked_bytes_threshold;
 			break;
 			}
 		default:

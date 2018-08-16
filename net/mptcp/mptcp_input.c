@@ -1048,22 +1048,26 @@ next:
 
 /* Reinject Data-ACK on other subflows */
 
-void mptcp_reinject_data_ack(struct sock *current_sk)
+void mptcp_reinject_data_ack(struct sock *current_sk, int bytes_acked)
 {
+	struct tcp_sock *current_tp = tcp_sk(current_sk);
+	struct mptcp_cb *mpcb = current_tp->mpcb;
 	struct mptcp_tcp_sock *mptcp;
-	struct tcp_sock *c_tp = tcp_sk(current_sk);
-	int large_data = 0;	// bytes, should be set by bpf program
 
-	mptcp_for_each_sub(c_tp->mpcb, mptcp) {
+	/* only debug print if we set the threshold */
+	if (mpcb->acked_bytes_threshold != 0x7FFFFFFF)
+		mptcp_debug("bytes_acked: %d \t Current sk: %d\n",
+			bytes_acked, current_tp->mptcp->path_index);
+
+	mptcp_for_each_sub(mpcb, mptcp) {
 		struct sock *sk = mptcp_to_sock(mptcp);
 
-		if (sk != current_sk &&
-		    ((c_tp->rcv_nxt - c_tp->rcv_wup) >= large_data)) {
-			mptcp_debug("Reinject data-ACK on subflow: %d\n",
+		if (sk != current_sk  &&
+		    bytes_acked >=  mpcb->acked_bytes_threshold) {
+			mptcp_debug("Reinject dataACK on subflow: %d\n",
 					tcp_sk(sk)->mptcp->path_index);
 			tcp_send_ack(sk);
 		}
-		else	mptcp_debug("Do not resend data-ACK on current sk\n");
 	}
 }
 
@@ -1072,6 +1076,8 @@ void mptcp_data_ready(struct sock *sk)
 	struct sock *meta_sk = mptcp_meta_sk(sk);
 	struct sk_buff *skb, *tmp;
 	int queued = 0;
+	/* this is also the data_ack number */
+	int old_rcv_nxt = tcp_sk(meta_sk)->rcv_nxt;
 
 	tcp_mstamp_refresh(tcp_sk(meta_sk));
 
@@ -1134,7 +1140,8 @@ exit:
 	if (queued == -1 && !sock_flag(meta_sk, SOCK_DEAD))
 	{
 		meta_sk->sk_data_ready(meta_sk);
-		mptcp_reinject_data_ack(sk);
+		/* the difference is the amount of new bytes being data-acked */
+		mptcp_reinject_data_ack(sk, tcp_sk(meta_sk)->rcv_nxt - old_rcv_nxt);
 	}
 }
 
