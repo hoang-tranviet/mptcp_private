@@ -346,6 +346,10 @@ struct mptcp_cb {
 
 	/* if current RTT reach it, other backup sf will become active */
 	u32 rtt_threshold;
+	/* if the amount of data-acked bytes on a subflow goes above this
+	 * then data-ack will be resent on other subflows.
+	 */
+	u32 acked_bytes_threshold;
 };
 
 #define MPTCP_VERSION_0 0
