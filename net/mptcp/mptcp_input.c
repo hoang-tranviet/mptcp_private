@@ -1046,6 +1046,27 @@ next:
 	return data_queued ? -1 : -2;
 }
 
+/* Reinject Data-ACK on other subflows */
+
+void mptcp_reinject_data_ack(struct sock *current_sk)
+{
+	struct mptcp_tcp_sock *mptcp;
+	struct tcp_sock *c_tp = tcp_sk(current_sk);
+	int large_data = 0;	// bytes, should be set by bpf program
+
+	mptcp_for_each_sub(c_tp->mpcb, mptcp) {
+		struct sock *sk = mptcp_to_sock(mptcp);
+
+		if (sk != current_sk &&
+		    ((c_tp->rcv_nxt - c_tp->rcv_wup) >= large_data)) {
+			mptcp_debug("Reinject data-ACK on subflow: %d\n",
+					tcp_sk(sk)->mptcp->path_index);
+			tcp_send_ack(sk);
+		}
+		else	mptcp_debug("Do not resend data-ACK on current sk\n");
+	}
+}
+
 void mptcp_data_ready(struct sock *sk)
 {
 	struct sock *meta_sk = mptcp_meta_sk(sk);
@@ -1111,7 +1132,10 @@ exit:
 	}
 
 	if (queued == -1 && !sock_flag(meta_sk, SOCK_DEAD))
+	{
 		meta_sk->sk_data_ready(meta_sk);
+		mptcp_reinject_data_ack(sk);
+	}
 }
 
 struct mp_join *mptcp_find_join(const struct sk_buff *skb)
