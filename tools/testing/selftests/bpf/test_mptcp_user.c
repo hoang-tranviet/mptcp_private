@@ -54,10 +54,9 @@ void read_trace_pipe(void)
 
 int main(int argc, char **argv)
 {
-	//const char *file = "test_mptcp_priority_kern.o";
-	const char *file = "bpf_mptcp_reinject_data_acks_kern.o";
+	const char *file;
 	int cg_fd, prog_fd;
-	bool debug_flag = false;
+	bool debug_flag = true;
 	int error = EXIT_FAILURE;
 	struct bpf_object *obj;
 	char cmd[100], *dir;
@@ -65,8 +64,15 @@ int main(int argc, char **argv)
 	int pid;
 	int rv;
 
-	if (argc > 1 && strcmp(argv[1], "-d") == 0)
-		debug_flag = true;
+	if (argc > 1)
+		file = argv[1];
+	else {
+		printf("Please specify the bpf program object.\n"
+			" e.g.: ./test_mptcp_user  bpf_mptcp_reinject_data_acks_kern.o \n");
+		exit(1);
+	}
+
+	printf("loading bpf program: %s\n", file);
 
 	dir = "/tmp/cgroupv2/foo";
 
