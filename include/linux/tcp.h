@@ -472,6 +472,7 @@ struct tcp_sock {
 #define MPTCP_SCHED_NAME_MAX 16
 #define MPTCP_PM_NAME_MAX 16
 	struct hlist_nulls_node tk_table;
+	u32		mptcp_origin_token;
 	u32		mptcp_loc_token;
 	u64		mptcp_loc_key;
 	char		mptcp_sched_name[MPTCP_SCHED_NAME_MAX];

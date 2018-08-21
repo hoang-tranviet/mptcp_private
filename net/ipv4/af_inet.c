@@ -713,14 +713,117 @@ sock_error:
 }
 EXPORT_SYMBOL(__inet_stream_connect);
 
+
+void create_alternate_mp_capable_syns(struct socket *origin_sock, __be32 src_addr,
+				      struct sockaddr *uaddr, int addr_len)
+{
+	struct sock *origin_sk = origin_sock->sk;
+	struct net_device *dev;
+	struct in_device *in_dev;
+	//struct inet6_dev *ip6_ptr;
+	struct in_ifaddr *ifap;
+	//struct inet6_ifaddr *ifap6;
+
+	/* do not send other SYNs in any of these cases:
+	 * - socket was bound to an IP/iface
+	 * - this is not MPTCP
+	 * - this is not a master subflow
+	 * - TCP FastOpen is enabled
+	 *
+	 * The forked kernel_connect() also goes through this function,
+	 * which may lead to calling new kernel_connect() over and over!
+	 * Luckily, the condition below also prevent infinite loop since
+	 * every new connect() was set by us to bind to a source address
+         */
+	if (src_addr) {
+		mptcp_debug("bound src_addr: %pI4, bypass\n", &src_addr);
+		return;
+	}
+	if (!sock_flag(origin_sk, SOCK_MPTCP)) {
+		mptcp_debug("mptcp is not enabled on this socket, bypass\n");
+		return;
+	}
+	if (!is_master_tp(tcp_sk(origin_sk)))
+		return;
+
+	if (inet_sk(origin_sk)->defer_connect) {
+		mptcp_debug("fastopen is enabled, bypass\n");
+		return;
+	}
+
+	mptcp_debug("try to create parallel SYNs!\n");
+
+	read_lock(&dev_base_lock);
+	for_each_netdev(sock_net(origin_sk), dev) {
+
+		if (dev->flags & (IFF_LOOPBACK) ||
+		  !(dev->flags & (IFF_UP|IFF_RUNNING))) {
+			mptcp_debug("ignore net_device: %s %x \n", dev->name, dev->flags);
+			continue;
+		}
+
+		mptcp_debug("try net_device: %s!\n", dev->name);
+		/* try the IPv4 addresses first */
+		in_dev = rcu_dereference(dev->ip_ptr);
+		for (ifap = in_dev->ifa_list; ifap != NULL;
+		     ifap = ifap->ifa_next) {
+
+			struct socket_alloc sock_full;
+			struct socket *sock = (struct socket *)&sock_full;
+			struct sock *sk = sock->sk;
+			struct sockaddr_in loc_in;
+			int ret;
+
+			/** First, create and prepare the new socket */
+			// need to use old sock instead?
+			memcpy(&sock_full, origin_sock, sizeof(sock_full));
+			sock->state = SS_UNCONNECTED;
+
+			ret = inet_create(sock_net(origin_sk), sock, IPPROTO_TCP, 0);
+			if (unlikely(ret < 0)) {
+				mptcp_debug("inet_create error: %d!\n", ret);
+				continue;
+			}
+
+			sk->sk_bound_dev_if = dev->ifindex;
+			loc_in.sin_family = AF_INET;
+			loc_in.sin_port = 0;
+			loc_in.sin_addr.s_addr = ifap->ifa_address;
+			ret = kernel_bind(sock, (struct sockaddr *)&loc_in, sizeof(struct sockaddr_in));
+			mptcp_debug("bind to local addr: %pI4 \n", &ifap->ifa_address);
+
+			if (ret < 0) {
+				mptcp_debug("kernel_bind error: %d!\n", ret);
+				continue;
+			}
+
+			tcp_sk(sk)->mptcp_origin_token = tcp_sk(origin_sk)->mptcp_loc_token;
+
+			ret = kernel_connect(sock, uaddr, sizeof(struct sockaddr_in), O_NONBLOCK);
+			if (ret < 0 && ret != -EINPROGRESS) {
+				net_err_ratelimited("%s: Alt connect() error %d\n",
+						    __func__, ret);
+				continue;
+			}
+			sk_set_socket(sk, sock);
+		}
+	}
+	read_unlock(&dev_base_lock);
+}
+
 int inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
 			int addr_len, int flags)
 {
 	int err;
+	__be32 src_addr = inet_sk(sock->sk)->inet_saddr;
 
 	lock_sock(sock->sk);
 	err = __inet_stream_connect(sock, uaddr, addr_len, flags, 0);
 	release_sock(sock->sk);
+
+#ifdef CONFIG_MPTCP
+	create_alternate_mp_capable_syns(sock, src_addr, uaddr, addr_len);
+#endif
 	return err;
 }
 EXPORT_SYMBOL(inet_stream_connect);
