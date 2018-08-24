@@ -184,6 +184,9 @@ static struct hlist_nulls_head mptcp_reqsk_tk_htb[MPTCP_HASH_SIZE];
  */
 static spinlock_t mptcp_tk_hashlock;
 
+struct origin_token origin_token_list;
+EXPORT_SYMBOL(origin_token_list);
+
 static bool mptcp_reqsk_find_tk(const u32 token)
 {
 	const u32 hash = mptcp_hash_tk(token);
@@ -491,6 +494,22 @@ void mptcp_connect_init(struct sock *sk)
 	__mptcp_hash_insert(tp, tp->mptcp_loc_token);
 	spin_unlock(&mptcp_tk_hashlock);
 	rcu_read_unlock_bh();
+
+	/* if this tp does not have parent token, this is the origin tp
+	 * so we add its token to the origin_token_list */
+	if (!tp->mptcp_origin_token) {
+		struct origin_token *token;
+
+		mptcp_debug("%x origin tp, add its token to list\n",
+				tp->mptcp_loc_token);
+		/* create a node */
+		token = kmalloc(sizeof(*token), GFP_KERNEL);
+		token->value = tp->mptcp_loc_token;
+		INIT_LIST_HEAD(&token->list);
+
+		/* add node to the list */
+		list_add_rcu(&token->list, &origin_token_list.list);
+	}
 
 	MPTCP_INC_STATS(sock_net(sk), MPTCP_MIB_MPCAPABLEACTIVE);
 }
@@ -2949,6 +2968,8 @@ void __init mptcp_init(void)
 {
 	int i;
 	struct ctl_table_header *mptcp_sysctl;
+
+	LIST_HEAD(origin_token_list);
 
 	mptcp_sock_cache = kmem_cache_create("mptcp_sock",
 					     sizeof(struct mptcp_tcp_sock),

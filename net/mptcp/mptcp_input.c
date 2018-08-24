@@ -2300,6 +2300,29 @@ int mptcp_rcv_synsent_state_process(struct sock *sk, struct sock **skptr,
 	} else if (mopt->saw_mpc) {
 		struct sock *meta_sk = sk;
 
+		struct origin_token *token;
+		int found = 0;
+
+		list_for_each_entry_rcu(token, &origin_token_list.list, list) {
+			if (token->value == tcp_sk(sk)->mptcp_origin_token) {
+				found = 1;
+				mptcp_debug("origin token:%x this token:%x first mp_capa synack, use it\n",
+							token->value, tcp_sk(sk)->mptcp_loc_token);
+				list_del_rcu(&token->list);
+				//kfree(token);
+			}
+		}
+
+		/* if not found the original token in the list, it was removed
+		 * before when a quicker MP_CAPA SYN/ACK had arrived before us
+		 * this is a late SYN/ACK, return 2 to terminate this connectioni
+		 */
+		if (!found) {
+			mptcp_debug("origin token:%x this token:%x late mp_capa synack, reject it\n",
+				tcp_sk(sk)->mptcp_origin_token, tcp_sk(sk)->mptcp_loc_token);
+			return 2;
+		}
+
 		MPTCP_INC_STATS(sock_net(sk), MPTCP_MIB_MPCAPABLEACTIVEACK);
 		if (mopt->mptcp_ver > tcp_sk(sk)->mptcp_ver)
 			/* TODO Consider adding new MPTCP_INC_STATS entry */

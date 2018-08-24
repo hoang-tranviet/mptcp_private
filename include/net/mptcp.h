@@ -212,6 +212,12 @@ struct mptcp_tw {
 	   in_list:1;
 };
 
+struct origin_token {
+	u32 value;
+	struct list_head list;
+};
+
+
 #define MPTCP_PM_NAME_MAX 16
 struct mptcp_pm_ops {
 	struct list_head list;
@@ -763,6 +769,7 @@ extern u32 mptcp_seed;
 #define MPTCP_HASH_SIZE                1024
 
 extern struct hlist_nulls_head tk_hashtable[MPTCP_HASH_SIZE];
+extern struct origin_token     origin_token_list;
 
 /* Request-sockets can be hashed in the tk_htb for collision-detection or in
  * the regular htb for join-connections. We need to define different NULLS
