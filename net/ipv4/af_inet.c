@@ -723,6 +723,8 @@ void create_alternate_mp_capable_syns(struct socket *origin_sock, __be32 src_add
 	//struct inet6_dev *ip6_ptr;
 	struct in_ifaddr *ifap;
 	//struct inet6_ifaddr *ifap6;
+	int origin, i = 0;
+	origin = tcp_sk(origin_sk)->mptcp_loc_token;
 
 	/* do not send other SYNs in any of these cases:
 	 * - socket was bound to an IP/iface
@@ -736,7 +738,7 @@ void create_alternate_mp_capable_syns(struct socket *origin_sock, __be32 src_add
 	 * every new connect() was set by us to bind to a source address
          */
 	if (src_addr) {
-		mptcp_debug("bound src_addr: %pI4, bypass\n", &src_addr);
+	//	mptcp_debug("%x: bound src_addr: %pI4, bypass\n", origin, &src_addr);
 		return;
 	}
 	if (!sock_flag(origin_sk, SOCK_MPTCP)) {
@@ -751,58 +753,65 @@ void create_alternate_mp_capable_syns(struct socket *origin_sock, __be32 src_add
 		return;
 	}
 
-	mptcp_debug("try to create parallel SYNs!\n");
+	mptcp_debug("%x: try to create alt SYNs\n", origin);
 
 	read_lock(&dev_base_lock);
 	for_each_netdev(sock_net(origin_sk), dev) {
 
 		if (dev->flags & (IFF_LOOPBACK) ||
 		  !(dev->flags & (IFF_UP|IFF_RUNNING))) {
-			mptcp_debug("ignore net_device: %s %x \n", dev->name, dev->flags);
+			mptcp_debug("%x: ignore: %s %x \n", origin, dev->name, dev->flags);
 			continue;
 		}
 
-		mptcp_debug("try net_device: %s!\n", dev->name);
+		mptcp_debug("%x: try: %s\n", origin, dev->name);
 		/* try the IPv4 addresses first */
 		in_dev = rcu_dereference(dev->ip_ptr);
 		for (ifap = in_dev->ifa_list; ifap != NULL;
 		     ifap = ifap->ifa_next) {
 
-			struct socket_alloc sock_full;
-			struct socket *sock = (struct socket *)&sock_full;
-			struct sock *sk = sock->sk;
+			//struct socket_alloc sock_full;
+			//struct socket *sock = (struct socket *)&sock_full;
+			struct socket *sock;
+			struct sock *sk;
 			struct sockaddr_in loc_in;
 			int ret;
+			i++;
+
+			mptcp_debug("%x %d: new SYN on local addr: %pI4 \n", origin, i, &ifap->ifa_address);
 
 			/** First, create and prepare the new socket */
-			// need to use old sock instead?
-			memcpy(&sock_full, origin_sock, sizeof(sock_full));
+			sock = sock_alloc();
+			sock->type = SOCK_STREAM;
 			sock->state = SS_UNCONNECTED;
 
+			/* Then, create sk */
 			ret = inet_create(sock_net(origin_sk), sock, IPPROTO_TCP, 0);
 			if (unlikely(ret < 0)) {
 				mptcp_debug("inet_create error: %d!\n", ret);
 				continue;
 			}
 
+			sk = sock->sk;
 			sk->sk_bound_dev_if = dev->ifindex;
 			loc_in.sin_family = AF_INET;
 			loc_in.sin_port = 0;
 			loc_in.sin_addr.s_addr = ifap->ifa_address;
+			mptcp_debug("%x %d: try kernel_bind()\n", origin, i);
 			ret = kernel_bind(sock, (struct sockaddr *)&loc_in, sizeof(struct sockaddr_in));
-			mptcp_debug("bind to local addr: %pI4 \n", &ifap->ifa_address);
 
 			if (ret < 0) {
 				mptcp_debug("kernel_bind error: %d!\n", ret);
 				continue;
 			}
 
-			tcp_sk(sk)->mptcp_origin_token = tcp_sk(origin_sk)->mptcp_loc_token;
+			tcp_sk(sk)->mptcp_origin_token = origin;
 
+			mptcp_debug("%x %d: try kernel_connect()\n", origin, i);
 			ret = kernel_connect(sock, uaddr, sizeof(struct sockaddr_in), O_NONBLOCK);
 			if (ret < 0 && ret != -EINPROGRESS) {
-				net_err_ratelimited("%s: Alt connect() error %d\n",
-						    __func__, ret);
+				net_err_ratelimited("%x %d: Alt connect() error %d\n",
+						    origin, i, ret);
 				continue;
 			}
 			sk_set_socket(sk, sock);
