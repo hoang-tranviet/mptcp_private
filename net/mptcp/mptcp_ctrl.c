@@ -498,17 +498,31 @@ void mptcp_connect_init(struct sock *sk)
 	/* if this tp does not have parent token, this is the origin tp
 	 * so we add its token to the origin_token_list */
 	if (!tp->mptcp_origin_token) {
-		struct origin_token *token;
-
-		mptcp_debug("%x origin tp, add its token to list\n",
-				tp->mptcp_loc_token);
+		if (!tp->mptcp_loc_token)
+			mptcp_debug("Oh shit, no loc_token\n");
+		mptcp_debug(" origin tp:%x\n", tp->mptcp_loc_token);
+		mptcp_debug(" create a node");
 		/* create a node */
-		token = kmalloc(sizeof(*token), GFP_KERNEL);
-		token->value = tp->mptcp_loc_token;
-		INIT_LIST_HEAD(&token->list);
+#ifdef xxx
+		struct origin_token *token_node;
+
+		token_node = kmalloc(sizeof(struct origin_token), GFP_KERNEL);
+		if (!token_node)
+			mptcp_debug("Oh shit, token is null\n");
+		token_node->value = tp->mptcp_loc_token;
+		INIT_LIST_HEAD(&token_node->list);
 
 		/* add node to the list */
-		list_add_rcu(&token->list, &origin_token_list.list);
+		list_add_rcu(&token_node->list, &origin_token_list.list);
+#endif
+		struct origin_token token_node = {
+			.value = tp->mptcp_loc_token,
+			.list = LIST_HEAD_INIT(token_node.list),
+		};
+		mptcp_debug(" adding node to list \n");
+		list_add_rcu(&token_node.list, &origin_token_list.list);
+
+		mptcp_debug(" node added \n");
 	}
 
 	MPTCP_INC_STATS(sock_net(sk), MPTCP_MIB_MPCAPABLEACTIVE);

@@ -2302,6 +2302,9 @@ int mptcp_rcv_synsent_state_process(struct sock *sk, struct sock **skptr,
 
 		struct origin_token *token;
 		int found = 0;
+		mptcp_debug("%s: received mp_capa synack \n", __func__);
+		if (!tcp_sk(sk)->mptcp_origin_token)
+			mptcp_debug("no origin_token!\n");
 
 		list_for_each_entry_rcu(token, &origin_token_list.list, list) {
 			if (token->value == tcp_sk(sk)->mptcp_origin_token) {
@@ -2328,7 +2331,6 @@ int mptcp_rcv_synsent_state_process(struct sock *sk, struct sock **skptr,
 			/* TODO Consider adding new MPTCP_INC_STATS entry */
 			goto fallback;
 
-		mptcp_debug("%s: received mp_capa synack \n", __func__);
 		if (mptcp_create_master_sk(sk, mopt->mptcp_sender_key,
 					   mopt->mptcp_ver,
 					   ntohs(tcp_hdr(skb)->window)))
