@@ -7,7 +7,7 @@
 #include <linux/ip.h>
 #include <linux/types.h>
 #include <linux/socket.h>
-#include <linux/tcp.h>
+//#include <linux/tcp.h>
 #include <netinet/in.h>
 #include "bpf_helpers.h"
 #include "bpf_endian.h"
