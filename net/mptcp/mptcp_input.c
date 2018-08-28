@@ -2300,29 +2300,37 @@ int mptcp_rcv_synsent_state_process(struct sock *sk, struct sock **skptr,
 	} else if (mopt->saw_mpc) {
 		struct sock *meta_sk = sk;
 
-		struct origin_token *token;
-		int found = 0;
+		struct origin_token *token, *tmp;
+		int found = 0, i = 0;
 		mptcp_debug("%s: received mp_capa synack \n", __func__);
-		if (!tcp_sk(sk)->mptcp_origin_token)
-			mptcp_debug("no origin_token!\n");
+		if (!tp->mptcp_origin_token)
+			mptcp_debug("%x: this is the origin\n", tp->mptcp_loc_token);
+		if (list_empty(&origin_token_list.list))
+			mptcp_debug("%x: list is empty \n", tp->mptcp_loc_token);
 
-		list_for_each_entry_rcu(token, &origin_token_list.list, list) {
-			if (token->value == tcp_sk(sk)->mptcp_origin_token) {
+		//dump_stack();
+		spin_lock(&parent_token_list_lock);
+		list_for_each_entry_safe(token, tmp, &origin_token_list.list, list) {
+			if (token->value == tp->mptcp_loc_token ||
+			    token->value == tp->mptcp_origin_token ) {
 				found = 1;
-				mptcp_debug("origin token:%x this token:%x first mp_capa synack, use it\n",
-							token->value, tcp_sk(sk)->mptcp_loc_token);
-				list_del_rcu(&token->list);
+				mptcp_debug("%x: origin token:%x first mp_capa synack, use it\n",
+							tp->mptcp_loc_token, token->value);
+				list_del(&token->list);
+				// Todo: free this node
 				//kfree(token);
 			}
+			i++;
 		}
-
+		spin_unlock(&parent_token_list_lock);
+		mptcp_debug("%x: list size: %d \n", tp->mptcp_loc_token, i);
 		/* if not found the original token in the list, it was removed
 		 * before when a quicker MP_CAPA SYN/ACK had arrived before us
 		 * this is a late SYN/ACK, return 2 to terminate this connectioni
 		 */
 		if (!found) {
 			mptcp_debug("origin token:%x this token:%x late mp_capa synack, reject it\n",
-				tcp_sk(sk)->mptcp_origin_token, tcp_sk(sk)->mptcp_loc_token);
+					tp->mptcp_origin_token, tp->mptcp_loc_token);
 			return 2;
 		}
 

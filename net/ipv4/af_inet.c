@@ -810,8 +810,8 @@ void create_alternate_mp_capable_syns(struct socket *origin_sock, __be32 src_add
 			mptcp_debug("%x %d: try kernel_connect()\n", origin, i);
 			ret = kernel_connect(sock, uaddr, sizeof(struct sockaddr_in), O_NONBLOCK);
 			if (ret < 0 && ret != -EINPROGRESS) {
-				net_err_ratelimited("%x %d: Alt connect() error %d\n",
-						    origin, i, ret);
+				mptcp_debug("%x %d: Alt connect() error %d, tcp state:%u\n",
+						    origin, i, ret, sk->sk_state);
 				continue;
 			}
 			sk_set_socket(sk, sock);

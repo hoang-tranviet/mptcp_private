@@ -770,6 +770,7 @@ extern u32 mptcp_seed;
 
 extern struct hlist_nulls_head tk_hashtable[MPTCP_HASH_SIZE];
 extern struct origin_token     origin_token_list;
+extern spinlock_t parent_token_list_lock;
 
 /* Request-sockets can be hashed in the tk_htb for collision-detection or in
  * the regular htb for join-connections. We need to define different NULLS
