@@ -72,6 +72,11 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	if (argc > 2  &&  strncmp(argv[2], "q", 1)) {
+		printf("Quiet mode\n");
+		debug_flag = false;
+	}
+
 	printf("loading bpf program: %s\n", file);
 
 	dir = "/tmp/cgroupv2/foo";
