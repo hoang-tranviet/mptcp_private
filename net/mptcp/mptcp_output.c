@@ -1151,8 +1151,6 @@ void mptcp_options_write(__be32 *ptr, struct tcp_sock *tp,
 			 const struct tcp_out_options *opts,
 			 struct sk_buff *skb)
 {
-	int w, len;
-
 	if (unlikely(OPTION_MP_CAPABLE & opts->mptcp_options)) {
 		struct mp_capable *mpc = (struct mp_capable *)ptr;
 
@@ -1321,7 +1319,11 @@ void mptcp_options_write(__be32 *ptr, struct tcp_sock *tp,
 		return;
 
 	if (opts->extending_len > 0) {
-		w = tcp_call_bpf((struct sock *)tp, BPF_MPTCP_OPTIONS_WRITE, 0, NULL);
+		int w, len;
+		int id = 0;
+		if (mptcp(tp))
+		    id = (int) tp->mptcp->path_index;
+		w = tcp_call_bpf_2arg((struct sock *)tp, BPF_MPTCP_OPTIONS_WRITE, 0, id);
 		if (w != 0) {
 			/* write option data to the skb pointed by ptr */
 			*(int *)ptr = w;
