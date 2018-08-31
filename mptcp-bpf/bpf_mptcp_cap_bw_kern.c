@@ -34,7 +34,7 @@ struct mptcp_option mp_opt = {
 	.len = 4,
 	.subtype = 15,
 	.rsv = 0,
-	.data = 0xFF, // bw in KBps
+	.data = 100, // capped bw, in KBps
 };
 
 SEC("sockops")
@@ -59,7 +59,7 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 	{
 		unsigned int id = skops->args[0];
 		unsigned int dev_type = skops->args[1];
-		char fmt1[] = "subflow id: %u \t dev->type: %u\n";
+		char fmt1[] = "Client: rcv SYN-ACK on subflow: %u \t dev->type: %u\n";
 		bpf_trace_printk(fmt1, sizeof(fmt1), id, dev_type);
 
 		/* master subflow has id = 1
@@ -85,8 +85,8 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		break;
 	case BPF_MPTCP_OPTIONS_WRITE:
 	{
-		char fmt3[] = "OPTIONS_WRITE \n\n";
-		bpf_trace_printk(fmt3, sizeof(fmt3));
+		char fmt3[] = "OPTIONS_WRITE on subflow: %u\n\n";
+		bpf_trace_printk(fmt3, sizeof(fmt3), skops->args[1]);
 
 		int option_buffer;
 		// skops->reply_long = mp_opt;
@@ -98,9 +98,10 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 	case BPF_MPTCP_PARSE_OPTIONS:
 	{
 		unsigned int clamp, bw, rtt;
+		unsigned int mtu = 1500;
 
 		bpf_getsockopt(skops, IPPROTO_TCP, TCP_BPF_SNDCWND_CLAMP, &clamp, sizeof(clamp));
-		char fmt11[] = "effective window clamp before = %d \n";
+		char fmt11[] = "snd_cwnd clamp before = %d \n";
 		bpf_trace_printk(fmt11, sizeof(fmt11), clamp);
 
 		/* get the parsed option, swap to little-endian */
@@ -114,18 +115,25 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		bpf_trace_printk(fmt10, sizeof(fmt10),  skops->args[0], skops->args[1],
 							option);
 
-		char fmt12[] = "requested bw: %u KB/s   rtt:%u ms   snd_cwnd: %u\n";
-		bpf_trace_printk(fmt12, sizeof(fmt12), bw, rtt, skops->snd_cwnd);
+		char fmt12[] = "requested bw: %u KB/s\n";
+		bpf_trace_printk(fmt12, sizeof(fmt12), bw);
+
+		char fmt22[] = "rtt:%u ms  mss_cache:%u snd_cwnd: %u\n";
+		bpf_trace_printk(fmt22, sizeof(fmt22), rtt, skops->mss_cache, skops->snd_cwnd);
 
 		if (rtt == 0)
 			break;
-		clamp = bw*rtt;
+		/* if this is a valid MSS, use it to estimate MTU */
+		if (skops->mss_cache > 0)
+			mtu = skops->mss_cache; // should +50;
+
+		clamp = bw*rtt/mtu;
 
 		rv = bpf_setsockopt(skops, IPPROTO_TCP, TCP_BPF_SNDCWND_CLAMP,
 							&clamp, sizeof(clamp));
 
 		bpf_getsockopt(skops, IPPROTO_TCP, TCP_BPF_SNDCWND_CLAMP, &clamp, sizeof(clamp));
-		char fmt13[] = "effective window clamp after = %d \n";
+		char fmt13[] = "snd_cwnd clamp after = %d \n";
 		bpf_trace_printk(fmt13, sizeof(fmt13), clamp);
 		break;
 	}
