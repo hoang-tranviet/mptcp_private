@@ -132,16 +132,28 @@ $NS_BR ip link set up dev br
 
 #add delay and bw
 # for client-to-server traffic
-$NS_BR tc qdisc add dev ethBr1 root handle 5:  tbf rate 2000kbit  burst 10000 latency 10ms
-$NS_BR tc qdisc add dev ethBr3 root handle 5:  tbf rate 2000kbit  burst 10000 latency 10ms
-#$NS_BR tc class add dev ethBr1 parent 1:    classid 1:11 htb rate 10kbps
-#$NS_BR tc qdisc add dev ethBr1 parent 1:11 handle 12:0 netem delay 20ms
+#$NS_BR tc qdisc add dev ethBr1 root handle 5:  tbf rate 5mbit  burst 10000 latency 200ms
+#$NS_BR tc qdisc add dev ethBr3 root handle 5:  tbf rate 5mbit  burst 10000 latency 200ms
+$NS_BR tc qdisc add dev ethBr1 handle 1: root   htb default 11
+$NS_BR tc class add dev ethBr1 parent 1:    classid 1:11 htb rate 5mbps
+$NS_BR tc qdisc add dev ethBr1 parent 1:11 handle 12:0 netem delay 40ms
+
+$NS_BR tc qdisc add dev ethBr3 handle 1: root   htb default 11
+$NS_BR tc class add dev ethBr3 parent 1:    classid 1:11 htb rate 5mbps
+$NS_BR tc qdisc add dev ethBr3 parent 1:11 handle 12:0 netem delay 40ms
 # will crash
 #$NS_BR tc qdisc add dev ethBr1 parent 5:0  fq_codel limit 1000  target 3ms  interval 40ms
 
 # for server-to-client traffic
-$NS_BR tc qdisc add dev ethBr2 root handle 6:  tbf rate 2000kbit  burst 10000 latency 10ms
-$NS_BR tc qdisc add dev ethBr4 root handle 6:  tbf rate 2000kbit  burst 10000 latency 10ms
+#$NS_BR tc qdisc add dev ethBr2 root handle 6:  tbf rate 2mbit  burst 10000 latency 100ms
+#$NS_BR tc qdisc add dev ethBr4 root handle 6:  tbf rate 2mbit  burst 10000 latency 100ms
+$NS_BR tc qdisc add dev ethBr2 handle 1: root   htb default 11
+$NS_BR tc class add dev ethBr2 parent 1:    classid 1:11 htb rate 5mbps
+$NS_BR tc qdisc add dev ethBr2 parent 1:11 handle 12:0 netem delay 20ms
+
+$NS_BR tc qdisc add dev ethBr4 handle 1: root   htb default 11
+$NS_BR tc class add dev ethBr4 parent 1:    classid 1:11 htb rate 5mbps
+$NS_BR tc qdisc add dev ethBr4 parent 1:11 handle 12:0 netem delay 20ms
 # has no effect
 #$NS_BR tc qdisc add dev ethBr2 parent 6:0  fq_codel limit 1000  target 3ms  interval 40ms
 
@@ -174,7 +186,7 @@ $NS1  python3 -m http.server 80 &
 sleep 1
 
 # client will self-terminate in (-m) seconds
-$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 1  -o /dev/null
+$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 5  -o /dev/null
 
 pkill tcpdump
 pkill tcpdump
