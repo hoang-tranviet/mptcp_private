@@ -223,7 +223,8 @@ static void mptcp_ccc_cong_avoid(struct sock *sk, u32 ack, u32 acked)
 		if (tp->snd_cwnd < tp->snd_cwnd_clamp) {
 			tp->snd_cwnd++;
 			mptcp_ccc_recalc_alpha(sk);
-		}
+		} else
+			tp->snd_cwnd = tp->snd_cwnd_clamp;
 
 		tp->snd_cwnd_cnt = 0;
 	} else {
