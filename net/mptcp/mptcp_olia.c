@@ -281,6 +281,8 @@ static void mptcp_olia_cong_avoid(struct sock *sk, u32 ack, u32 acked)
 	if (ca->mptcp_snd_cwnd_cnt >= (1 << scale) - 1) {
 		if (tp->snd_cwnd < tp->snd_cwnd_clamp)
 			tp->snd_cwnd++;
+		else
+			tp->snd_cwnd = tp->snd_cwnd_clamp;
 		ca->mptcp_snd_cwnd_cnt = 0;
 	} else if (ca->mptcp_snd_cwnd_cnt <= 0 - (1 << scale) + 1) {
 		tp->snd_cwnd = max((int) 1 , (int) tp->snd_cwnd - 1);
