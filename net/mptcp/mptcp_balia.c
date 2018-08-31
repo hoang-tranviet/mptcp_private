@@ -212,7 +212,8 @@ static void mptcp_balia_cong_avoid(struct sock *sk, u32 ack, u32 acked)
 		if (tp->snd_cwnd < tp->snd_cwnd_clamp) {
 			tp->snd_cwnd++;
 			mptcp_balia_recalc_ai(sk);
-		}
+		} else
+			tp->snd_cwnd = tp->snd_cwnd_clamp;
 
 		tp->snd_cwnd_cnt = 0;
 	} else {
