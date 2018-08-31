@@ -1078,7 +1078,7 @@ int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
 	struct tcp_skb_cb *tcb;
 	struct tcp_out_options opts;
 	unsigned int tcp_options_size, tcp_header_size;
-	int new_option_len = 0;
+	int extending_len = 0;
 	struct sk_buff *oskb = NULL;
 	struct tcp_md5sig_key *md5;
 	struct tcphdr *th;
@@ -1113,23 +1113,22 @@ int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
 	else
 		tcp_options_size = tcp_established_options(sk, skb, &opts,
 							   &md5);
+
 	if (BPF_SOCK_OPS_TEST_FLAG(tp, BPF_SOCK_OPS_OPTION_WRITE_FLAG))
 	{
 		mptcp_debug("tcp_options_size before: %d\n", tcp_options_size);
 		/* Call bpf_program to add the length of new MPTCP option
 		 * need to check if header space is enough for adding option
 		 */
-		new_option_len = tcp_call_bpf_2arg(sk, BPF_TCP_OPTIONS_SIZE_CALC, 0, tcp_options_size);
-		if (new_option_len > 0)
-			tcp_options_size += new_option_len;
+		extending_len = tcp_call_bpf_2arg(sk, BPF_TCP_OPTIONS_SIZE_CALC, 0, tcp_options_size);
+
+		opts.extending_len = extending_len;
+		tcp_options_size += extending_len;
+		mptcp_debug("tcp_options_size after: %d \n", tcp_options_size);
 	}
 
 	tcp_header_size = tcp_options_size + sizeof(struct tcphdr);
 
-	if (BPF_SOCK_OPS_TEST_FLAG(tp, BPF_SOCK_OPS_OPTION_WRITE_FLAG)) {
-		mptcp_debug("tcp_options_size after: %d  tcp_header_size: %d\n",
-				 tcp_options_size, tcp_header_size);
-	}
 	/* if no packet is in qdisc/device queue, then allow XPS to select
 	 * another queue. We can be called from tcp_tsq_handler()
 	 * which holds one reference to sk_wmem_alloc.

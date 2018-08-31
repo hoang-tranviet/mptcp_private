@@ -1318,19 +1318,23 @@ void mptcp_options_write(__be32 *ptr, struct tcp_sock *tp,
 	if (tp == NULL)
 		return;
 
-	if (BPF_SOCK_OPS_TEST_FLAG(tp, BPF_SOCK_OPS_OPTION_WRITE_FLAG)) {
-		int w, len;
-		int id = 0;
+	if (opts->extending_len > 0) {
+		int w, len, id = 0;
+
 		if (mptcp(tp))
 		    id = (int) tp->mptcp->path_index;
+
 		w = tcp_call_bpf_2arg((struct sock *)tp, BPF_MPTCP_OPTIONS_WRITE, 0, id);
+
 		if (w != 0) {
 			len = (w << 16) >> 24; // get the third byte
-			pr_err("option to add: %x, len:%d\n", w, len);
+			if (len != opts->extending_len)
+				pr_err("len of new option does not match!\n");
+			mptcp_debug("option to add: %x, len:%d\n", w, len);
 			*(int *)ptr = w;
 			ptr += sizeof(int) >> 2;
 		} else
-			pr_err("empty option in return, ignore\n");
+			mptcp_debug("empty option in return, ignore\n");
 	}
 }
 
