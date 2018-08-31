@@ -264,6 +264,8 @@ int mptcp_init4_subsockets(struct sock *meta_sk, const struct mptcp_loc4 *loc,
 	struct sockaddr_in loc_in, rem_in;
 	struct socket_alloc sock_full;
 	struct socket *sock = (struct socket *)&sock_full;
+	struct cgroup *cg_meta;
+	struct cgroup *cg_sub;
 	int ret;
 
 	/** First, create and prepare the new socket */
@@ -281,8 +283,8 @@ int mptcp_init4_subsockets(struct sock *meta_sk, const struct mptcp_loc4 *loc,
 	sk = sock->sk;
 	tp = tcp_sk(sk);
 
-	struct cgroup *cg_meta = sock_cgroup_ptr(&meta_sk->sk_cgrp_data);
-	struct cgroup *cg_sub = sock_cgroup_ptr(&sk->sk_cgrp_data);
+	cg_meta = sock_cgroup_ptr(&meta_sk->sk_cgrp_data);
+	cg_sub  = sock_cgroup_ptr(&sk->sk_cgrp_data);
 
 	if ((cg_meta) && (cg_sub)) {
 		/* copy sk_cgrp_data from meta_sk to new subflow sk */
