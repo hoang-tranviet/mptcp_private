@@ -1166,6 +1166,7 @@ enum {
 	BPF_TCP_OPTIONS_SIZE_CALC,	/* Called to recalculate TCP options size
 					 * Arg1: tcp_options_size */
 	BPF_TCP_OPTIONS_WRITE,		/* Called when writing TCP option */
+	BPF_TCP_PARSE_OPTIONS,		/* Called when parser sees new TCP option */
 };
 
 /* List of TCP states. There is a build check in net/ipv4/tcp.c to detect
