@@ -3871,6 +3871,18 @@ void tcp_parse_options(const struct net *net,
 							  opsize);
 				break;
 
+			default:
+				if (BPF_SOCK_OPS_TEST_FLAG(tcp_sk(sk),
+				     BPF_SOCK_OPS_OPTION_PARSE_FLAG)) {
+					unsigned int data = 0;
+					if (sk == NULL)
+						break;
+					memcpy(&data, ptr, opsize - 2);
+
+					tcp_call_bpf_3arg(sk,
+							  BPF_TCP_PARSE_OPTIONS,
+							  opcode, opsize, data);
+				}
 			}
 			ptr += opsize-2;
 			length -= opsize;
