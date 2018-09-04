@@ -3116,6 +3116,12 @@ enum {
 	BPF_TCP_OPTIONS_WRITE,		/* Calls BPF program to insert a custom
 					 * TCP option
 					 */
+	BPF_TCP_PARSE_OPTIONS,		/* Called when the TCP receiver sees
+					 * an unknown TCP option
+					 * Arg1: option kind
+					 * Arg2: option size
+					 * Arg3: option data
+					 */
 };
 
 /* List of TCP states. There is a build check in net/ipv4/tcp.c to detect
