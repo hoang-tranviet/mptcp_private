@@ -555,9 +555,10 @@ static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
 	if (tp == NULL)
 		return;
 
-	if (opts->extending_len > 0) {
+	if (opts->ext_len > 0) {
 		/* TODO: support more than 4 bytes */
-		int w = tcp_call_bpf((struct sock *)tp, BPF_TCP_OPTIONS_WRITE, 0, NULL);
+		int w = tcp_call_bpf((struct sock *)tp, BPF_TCP_OPTIONS_WRITE,
+				     0, NULL);
 		if (w != 0) {
 			/* copy option data to the buffer*/
 			*(int *)ptr = w;
