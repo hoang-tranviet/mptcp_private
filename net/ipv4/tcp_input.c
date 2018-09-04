@@ -3830,6 +3830,20 @@ void tcp_parse_options(const struct net *net,
 							  opsize);
 				break;
 
+			default:
+			{
+				unsigned int data = 0;
+				pr_debug("%s: Received unknown option type: %d, len: %d\n",
+					    __func__, opcode, opsize);
+				if (tp == NULL)
+					break;
+
+				memcpy(&data, ptr - 2, opsize);
+
+				tcp_call_bpf_3arg((struct sock *)tp, BPF_TCP_PARSE_OPTIONS,
+								opcode, opsize, data);
+			break;
+			}
 			}
 			ptr += opsize-2;
 			length -= opsize;
