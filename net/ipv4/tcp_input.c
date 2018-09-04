@@ -3871,6 +3871,17 @@ void tcp_parse_options(const struct net *net,
 							  opsize);
 				break;
 
+			default:
+			{
+				unsigned int data = 0;
+				if (sk == NULL)
+					break;
+				memcpy(&data, ptr - 2, opsize);
+
+				tcp_call_bpf_3arg(sk, BPF_TCP_PARSE_OPTIONS,
+						  opcode, opsize, data);
+				break;
+			}
 			}
 			ptr += opsize-2;
 			length -= opsize;
