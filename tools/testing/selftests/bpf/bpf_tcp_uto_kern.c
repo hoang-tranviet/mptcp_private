@@ -79,7 +79,7 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		/* Set specific callback */
 		rv = bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_OPTION_WRITE_FLAG);
 
-		UserTimeout = 1;
+		UserTimeout = 1000;
 		bpf_setsockopt(skops, IPPROTO_TCP, TCP_BPF_USER_TIMEOUT, &UserTimeout, sizeof(UserTimeout));
 
 		bpf_getsockopt(skops, IPPROTO_TCP, TCP_BPF_USER_TIMEOUT, &UserTimeout, sizeof(UserTimeout));
@@ -131,8 +131,9 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 
 		/* get the parsed option, swap to little-endian */
 		uto = swap(skops->args[2]);
+
 		/* Keep the last 15 bits */
-		UserTimeout = uto & 0x00007FFF;
+		UserTimeout = (uto & 0x00007FFF)*1000;
 		granularity = (uto & 0x00008000) >> 15;
 
 		char fmt10[] = "PARSE_OPTIONS: data: %x, granu: %x, UTO: %d\n";

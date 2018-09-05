@@ -3548,7 +3548,7 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 					ret = -EINVAL;
 					break;
 				}
-				icsk->icsk_user_timeout = msecs_to_jiffies(val)*1000;
+				icsk->icsk_user_timeout = val;
 				break;
 			default:
 				ret = -EINVAL;
@@ -3592,7 +3592,7 @@ BPF_CALL_5(bpf_getsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 			optval[optlen - 1] = 0;
 		}
 		else if (optname == TCP_BPF_USER_TIMEOUT) {
-			*((int *)optval) = (int)jiffies_to_msecs(icsk->icsk_user_timeout)/1000;
+			*((int *)optval) = (int)icsk->icsk_user_timeout;
 		} else {
 			goto err_clear;
 		}
