@@ -1640,6 +1640,7 @@ unsigned int tcp_current_mss(struct sock *sk)
 	const struct dst_entry *dst = __sk_dst_get(sk);
 	u32 mss_now;
 	unsigned int header_len;
+	unsigned int options_len;
 	struct tcp_out_options opts;
 	struct tcp_md5sig_key *md5;
 
@@ -1651,7 +1652,12 @@ unsigned int tcp_current_mss(struct sock *sk)
 			mss_now = tcp_sync_mss(sk, mtu);
 	}
 
-	header_len = tcp_established_options(sk, NULL, &opts, &md5) +
+	options_len = tcp_established_options(sk, NULL, &opts, &md5);
+
+	if (BPF_SOCK_OPS_TEST_FLAG(tp, BPF_SOCK_OPS_OPTION_WRITE_FLAG))
+		options_len += tcp_call_bpf_2arg(sk, BPF_TCP_OPTIONS_SIZE_CALC,
+						  0, options_len);
+	header_len = options_len +
 		     sizeof(struct tcphdr);
 	/* The mss_cache is sized based on tp->tcp_header_len, which assumes
 	 * some common options. If this is an odd packet (because we have SACK
