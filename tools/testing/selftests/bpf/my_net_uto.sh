@@ -129,12 +129,12 @@ $NS_RT tc class add dev ethRt1 parent 1:    classid 1:11 htb rate 1mbps
 $NS_RT tc qdisc add dev ethRt1 parent 1:11 handle 12:0 netem delay ${delay}ms
 
 $NS_RT tc qdisc add dev ethRt3 handle 1: root   htb default 11
-$NS_RT tc class add dev ethRt3 parent 1:    classid 1:11 htb rate 5mbps
+$NS_RT tc class add dev ethRt3 parent 1:    classid 1:11 htb rate 1mbps
 $NS_RT tc qdisc add dev ethRt3 parent 1:11 handle 12:0 netem delay 5ms
 
 # for server-to-client traffic
 $NS_RT tc qdisc add dev ethRt2 handle 1: root   htb default 11
-$NS_RT tc class add dev ethRt2 parent 1:    classid 1:11 htb rate 5mbps
+$NS_RT tc class add dev ethRt2 parent 1:    classid 1:11 htb rate 1mbps
 $NS_RT tc qdisc add dev ethRt2 parent 1:11 handle 12:0 netem delay 5ms
 
 
@@ -151,9 +151,9 @@ server_alt_IP="10.1.3.3"
 outdir=trace-uto/delay-${delay}
 mkdir -p $outdir
 
-$NS1  tcpdump -s 150 -i veth1  -w $outdir/dump_${iter}_server     2> /dev/null &
-$NS1  tcpdump -s 150 -i veth3  -w $outdir/dump_${iter}_server_alt 2> /dev/null &
-$NS2  tcpdump -s 150 -i veth2  -w $outdir/dump_${iter}_client     2> /dev/null &
+$NS1  tcpdump -s 150 -i veth1  -w $outdir/dump_${iter}_server     &> /dev/null &
+$NS1  tcpdump -s 150 -i veth3  -w $outdir/dump_${iter}_server_alt &> /dev/null &
+$NS2  tcpdump -s 150 -i veth2  -w $outdir/dump_${iter}_client     &> /dev/null &
 sleep 0.2
 
 
@@ -161,12 +161,12 @@ sleep 0.2
 $NS1 /usr/sbin/sshd -o PidFile=/run/sshd-ns1.pid
 
 $NS2 ./rsync_uto.sh $serverIP  $server_alt_IP &
-sleep 2
+sleep 4
 
 $NS_RT ip link set down dev ethRt1
 $NS1 ip route del 10.1.0.0/16
 $NS1 ip route add 10.1.0.0/16 via 10.1.3.33
 # wait
-sleep 3
+sleep 15
 
 finish
