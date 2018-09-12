@@ -104,8 +104,23 @@ int main(int argc, char **argv)
 		goto err;
 	}
 
-	//SYSTEM("curl multipath-tcp.org");
-	SYSTEM("./my_net.sh");
+	if (strcmp(file, "bpf_tcp_cc_kern.o") == 0) {
+		SYSTEM("./my_net_cc.sh");
+	} else
+	if (strcmp(file, "bpf_tcp_uto_kern.o") == 0) {
+		int i, j;
+		unsigned int delay[] = { 10, 50, 100, 500};
+
+		for (i = 0; i < 4; i++) {
+		  for (j = 0; j < 5; j++) {
+			sprintf(cmd, "./my_net_uto.sh %u %u", delay[i], j);
+			SYSTEM(cmd);
+		  }
+		}
+	}
+	else
+		SYSTEM("./my_net.sh");
+
 	if (debug_flag) {
 		printf("\n");
 		read_trace_pipe();
