@@ -60,7 +60,7 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 	struct tcp_option opt = {
 		.kind = 28, // TCP user option
 		.len = 4,   // of this option struct
-		.data = 0x0200, // will be swapped for big-endian
+		.data = 0x0100, // 1 second
 	};
 
 	int rv = -1;
@@ -79,6 +79,13 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		/* Set specific callback */
 		rv = bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_OPTION_WRITE_FLAG);
 
+		UserTimeout = 1;
+		bpf_setsockopt(skops, IPPROTO_TCP, TCP_BPF_USER_TIMEOUT, &UserTimeout, sizeof(UserTimeout));
+
+		bpf_getsockopt(skops, IPPROTO_TCP, TCP_BPF_USER_TIMEOUT, &UserTimeout, sizeof(UserTimeout));
+		char fmt111[] = "client Timeout: %d\n";
+		bpf_trace_printk(fmt111, sizeof(fmt111), UserTimeout);
+
 		char fmt0[] = "tcp connect callback\n";
 		bpf_trace_printk(fmt0, sizeof(fmt0));
 		break;
@@ -95,7 +102,7 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		if (skops->args[1] + option_len <= 40) {
 			rv = option_len;
 			char fmt4[] = "OPTIONS_SIZE_CALC  \t original:%d extend:%d B\n";
-			bpf_trace_printk(fmt4, sizeof(fmt4), skops->args[1], option_len);
+			//bpf_trace_printk(fmt4, sizeof(fmt4), skops->args[1], option_len);
 		}
 		else rv = 0;
 		break;
