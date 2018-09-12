@@ -40,13 +40,8 @@ static inline void update_event_map(int event)
 	}
 }
 
-/* From: stackoverflow.com/questions/2182002/convert-big-endian-to-little-endian-in-c-without-using-provided-func */
 static inline unsigned int swap(unsigned int num) {
-	return ((num>>24)&0xff) | // move byte 3 to byte 0
-		((num<<8)&0xff0000) | // move byte 1 to byte 2
-		((num>>8)&0xff00) | // move byte 2 to byte 1
-		((num<<24)&0xff000000); // byte 0 to byte 3
-
+	return __builtin_bswap32(num);
 }
 
 int _version SEC("version") = 1;
@@ -78,7 +73,6 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 	op = (int) skops->op;
 
 	update_event_map(op);
-	char fmt11[] = "real Timeout: %d\n";
 
 	switch (op) {
 	case BPF_SOCK_OPS_TCP_CONNECT_CB:
@@ -118,21 +112,23 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		// skops->reply_long = opt;
 		rv = option_buffer;
 
-		char fmt5[] = "OPTIONS_WRITE: %x \n";
+		char fmt5[] = "OPTIONS_WRITE: %x \n\n";
 		bpf_trace_printk(fmt5, sizeof(fmt5), rv);
 		break;
 
 	case BPF_TCP_PARSE_OPTIONS:
 		/* get original value */
 		rv = bpf_getsockopt(skops, IPPROTO_TCP, TCP_BPF_USER_TIMEOUT, &UserTimeout, sizeof(UserTimeout));
-		char fmt10[] = "PARSE_OPTIONS: %x, %x, %d\n";
+		char fmt11[] = "real Timeout: %d\n";
 		bpf_trace_printk(fmt11, sizeof(fmt11), UserTimeout);
 
 		/* get the parsed option, swap to little-endian */
 		uto = swap(skops->args[2]);
 		/* Keep the last 15 bits */
 		UserTimeout = uto & 0x00007FFF;
-		granularity = uto & 0x00008000;
+		granularity = (uto & 0x00008000) >> 15;
+
+		char fmt10[] = "PARSE_OPTIONS: data: %x, granu: %x, UTO: %d\n";
 		bpf_trace_printk(fmt10, sizeof(fmt10), uto, granularity, UserTimeout);
 		if (granularity != 0)
 			/* convert from minutes to seconds */
