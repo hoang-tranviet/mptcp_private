@@ -46,7 +46,7 @@ clean_up() {
 
 finish() {
 	terminate_all
-	clean_up
+	clean_up  2> /dev/null
 }
 
 # trap Ctrl-C
@@ -63,6 +63,7 @@ sysctl_config() {
 	$NS2 cat /proc/sys/kernel/printk
 }
 
+set -x
 clean_up 2> /dev/null
 
 if [ "$#" -ne 2 ]; then
@@ -150,6 +151,8 @@ server_alt_IP="10.1.3.3"
 
 outdir=trace-uto/delay-${delay}
 mkdir -p $outdir
+echo "testdir: $outdir	id: $iter"
+
 
 $NS1  tcpdump -s 150 -i veth1  -w $outdir/dump_${iter}_server     &> /dev/null &
 $NS1  tcpdump -s 150 -i veth3  -w $outdir/dump_${iter}_server_alt &> /dev/null &
@@ -166,7 +169,7 @@ sleep 4
 $NS_RT ip link set down dev ethRt1
 $NS1 ip route del 10.1.0.0/16
 $NS1 ip route add 10.1.0.0/16 via 10.1.3.33
-# wait
-sleep 15
+wait
+#sleep 10
 
 finish
