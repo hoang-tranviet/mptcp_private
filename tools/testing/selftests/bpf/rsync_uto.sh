@@ -10,14 +10,14 @@ echo -e "start rsync"
 server=$1
 server_alt=$2
 path=`pwd`
-src="test_verifier"
+src="foo.data"
 
-dst="./vmlinux.copied"
+dst="./${src}copied"
 
 rm $dst 2> /dev/null
 
 
-rsync  --progress --partial --append -v --timeout 1 \
+rsync  --progress --partial --append -v --timeout 2 \
 	-e "ssh -i /home/vagrant/.ssh/id_rsa" \
 	vagrant@$server:$path/$src $dst
 if [ "$?" = "0" ] ; then
