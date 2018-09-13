@@ -22,10 +22,10 @@ rsync  --progress --partial --append -v --timeout 2 \
 	vagrant@$server:$path/$src $dst
 if [ "$?" = "0" ] ; then
 	echo "rsync completed"
-	exit
 else
 	echo "rsync to $1 failed. Continue with $2..."
 	rsync  --progress --partial --append -v \
 		-e "ssh -i /home/vagrant/.ssh/id_rsa" \
 		vagrant@$server_alt:$path/$src $dst
+	echo "done"
 fi
