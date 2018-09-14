@@ -108,15 +108,29 @@ int main(int argc, char **argv)
 		SYSTEM("./my_net_cc.sh");
 	} else
 	if (strcmp(file, "bpf_tcp_uto_kern.o") == 0) {
+		debug_flag = 0;
 		int i, j;
-		unsigned int delay[] = { 10, 50, 100, 500};
+		//unsigned int delay[] = { 10, 50, 100, 200, 300, 400, 500};
+		unsigned int delay[] = { 100};
 
-		for (i = 0; i < 4; i++) {
-		  for (j = 0; j < 5; j++) {
-			sprintf(cmd, "./my_net_uto.sh %u %u", delay[i], j);
+		for (i = 0; i < 1; i++) {
+		  for (j = 0; j < 1; j++) {
+			sprintf(cmd, "./my_net_uto.sh %u %u %u", delay[i], j, 1);
 			SYSTEM(cmd);
 		  }
 		}
+
+		/*
+		// run experiment with no uto option
+		unsigned int delay[] = { 100};
+		bpf_prog_detach(cg_fd, BPF_CGROUP_SOCK_OPS);
+		for (i = 0; i < 1; i++) {
+		  for (j = 0; j < 3; j++) {
+			sprintf(cmd, "./my_net_uto.sh %u %u %u", delay[i], j, 0);
+			SYSTEM(cmd);
+		  }
+		}
+		*/
 	}
 	else
 		SYSTEM("./my_net.sh");
