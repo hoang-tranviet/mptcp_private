@@ -29,7 +29,9 @@ NS_RT="ip netns exec nsRt "
 
 terminate_all() {
 	pkill rsync
+	pkill rsync
 	pkill -f "PidFile=/run/sshd-ns1.pid"
+	pkill -f "PidFile=/run/sshd-ns3.pid"
 	pkill tcpdump
 	pkill tcpdump
 	pkill tcpdump
@@ -68,8 +70,8 @@ sysctl_config() {
 
 clean_up 2> /dev/null
 
-if [ "$#" -ne 2 ]; then
-    echo "Need two param: delay(ms) iteration"
+if [ "$#" -ne 3 ]; then
+    echo "Need 3 params: delay(ms) iteration uto_enable/disable"
     exit 1
 fi
 
@@ -152,8 +154,14 @@ sysctl_config
 server1_IP="10.1.1.1"
 server3_IP="10.1.3.3"
 
+set -x
+if [ $3 -eq 1 ]; then
+	parent_dir="trace-uto"
+else
+	parent_dir="trace-uto-disabled"
+fi
 
-outdir=trace-uto/delay-${delay}
+outdir=${parent_dir}/delay-${delay}
 mkdir -p $outdir
 echo "testdir: $outdir	id: $iter"
 

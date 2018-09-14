@@ -17,7 +17,8 @@ dst="./${src}copied"
 rm $dst 2> /dev/null
 
 
-rsync  --progress --partial --append -v --timeout 2 \
+#rsync  --progress --partial --append -v  \
+strace -f -tt -T -o strace.rsync rsync  --progress --partial --append -v --timeout 2 \
 	-e "ssh -i /home/vagrant/.ssh/id_rsa" \
 	vagrant@$server:$path/$src $dst
 if [ "$?" = "0" ] ; then
