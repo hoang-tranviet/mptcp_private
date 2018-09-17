@@ -104,7 +104,7 @@ int main(int argc, char **argv)
 		goto err;
 	}
 
-	if (strcmp(file, "bpf_tcp_cc_kern.o") == 0) {
+	if (strncmp(file, "bpf_tcp_cc_", 10) == 0) {
 		SYSTEM("./my_net_cc.sh");
 	} else
 	if (strcmp(file, "bpf_tcp_uto_kern.o") == 0) {
