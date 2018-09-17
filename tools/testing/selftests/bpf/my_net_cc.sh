@@ -23,6 +23,7 @@ NS_BR="ip netns exec nsBr "
 set -x
 
 sysctl -w net.mptcp.mptcp_enabled=0
+sysctl -w net.ipv4.tcp_allowed_congestion_control="reno bbr cubic dctcp vegas"
 
 # Clean
 $NS_BR ip link del ethBr1
@@ -105,8 +106,10 @@ $NS1  python3 -m http.server 80 &
 sleep 1
 
 # client will self-terminate in m seconds
-$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 2  -o /dev/null
+$NS2  curl $serverIP:$serverPort/vmlinux.o   -o /dev/null &
+sleep 11
 
+pkill curl
 pkill tcpdump
 pkill tcpdump
 
