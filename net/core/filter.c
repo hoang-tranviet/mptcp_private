@@ -3512,11 +3512,12 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 		   sk->sk_prot->setsockopt == tcp_setsockopt) {
 		if (optname == TCP_CONGESTION) {
 			char name[TCP_CA_NAME_MAX];
+			unsigned int len;
 			bool reinit = bpf_sock->op > BPF_SOCK_OPS_NEEDS_ECN;
 
-			strncpy(name, optval, min_t(long, optlen,
-						    TCP_CA_NAME_MAX-1));
-			name[TCP_CA_NAME_MAX-1] = 0;
+			len = strnlen(optval, TCP_CA_NAME_MAX-1);
+			strncpy(name, optval, len);
+			name[len] = 0;
 			ret = tcp_set_congestion_control(sk, name, false,
 							 reinit);
 		} else {
