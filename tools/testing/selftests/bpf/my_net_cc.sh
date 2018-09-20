@@ -83,7 +83,7 @@ $NS_BR tc qdisc add dev ethBr1 parent 1:11 handle 12:0 netem delay 40ms
 # for server-to-client traffic
 $NS_BR tc qdisc add dev ethBr2 handle 1: root   htb default 11
 $NS_BR tc class add dev ethBr2 parent 1:    classid 1:11 htb rate 1mbps
-$NS_BR tc qdisc add dev ethBr2 parent 1:11 handle 12:0 netem delay 20ms
+$NS_BR tc qdisc add dev ethBr2 parent 1:11 handle 12:0 netem delay 40ms
 
 # has no effect
 $NS_BR tc qdisc add dev br root  fq_codel limit 1000  target 3ms  interval 40ms

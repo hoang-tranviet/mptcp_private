@@ -7,3 +7,4 @@ for cc in reno cubic vegas bbr; do
 	mkdir -p trace-cc/$cc
 	mv dump* trace-cc/$cc
 done
+cp my_net_cc.sh trace-cc/
