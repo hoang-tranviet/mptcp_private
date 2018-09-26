@@ -47,10 +47,12 @@ clean_up() {
 	ip netns del ns2
 	ip netns del ns3
 	ip netns del nsRt
+
+	rm foo.datacopied* -f
 }
 
 finish() {
-	terminate_all
+	terminate_all 2> /dev/null
 	clean_up  2> /dev/null
 }
 
@@ -69,14 +71,6 @@ sysctl_config() {
 }
 
 clean_up 2> /dev/null
-
-if [ "$#" -ne 3 ]; then
-    echo "Need 3 params: delay(ms) iteration uto_enable/disable"
-    exit 1
-fi
-
-delay=$1
-iter=$2
 
 # Add namespaces
 ip netns add ns1
@@ -109,14 +103,15 @@ $NS_RT ifconfig ethRt3 hw ether 02:03:06:05:07:06
 $NS_RT ip address add 127.0.0.1/8 dev lo
 $NS_RT ip link set dev lo up
 
-$NS1   ifconfig  veth1 10.1.1.1/24 up
-$NS_RT ifconfig ethRt1 10.1.1.11/24 up
+MTU=200
+$NS1   ifconfig  veth1 10.1.1.1/24 mtu $MTU up
+$NS_RT ifconfig ethRt1 10.1.1.11/24 mtu $MTU up
 
-$NS3   ifconfig  veth3 10.1.3.3/24 up
-$NS_RT ifconfig ethRt3 10.1.3.33/24 up
+$NS3   ifconfig  veth3 10.1.3.3/24 mtu $MTU up
+$NS_RT ifconfig ethRt3 10.1.3.33/24 mtu $MTU up
 
-$NS2   ifconfig  veth2 10.1.2.2/24 up
-$NS_RT ifconfig ethRt2 10.1.2.22/24 up
+$NS2   ifconfig  veth2 10.1.2.2/24 mtu $MTU up
+$NS_RT ifconfig ethRt2 10.1.2.22/24 mtu $MTU up
 
 $NS1 ip route add 10.1.0.0/16 via 10.1.1.11
 $NS2 ip route add 10.1.0.0/16 via 10.1.2.22
@@ -129,21 +124,26 @@ $NS_RT ip link set up dev ethRt1
 $NS_RT ip link set up dev ethRt2
 $NS_RT ip link set up dev ethRt3
 
+delay=50
+rate=1000	#Mbps
+r2q=$(( ( $rate * 1048576 ) / ( $MTU * 8 ) ))
+echo $r2q
 #add delay and bw
 # for client-to-server traffic
-$NS_RT tc qdisc add dev ethRt1 handle 1: root   htb default 11
-$NS_RT tc class add dev ethRt1 parent 1:    classid 1:11 htb rate 1mbps
+$NS_RT tc qdisc add dev ethRt1 handle 1: root   htb default 11 r2q $r2q
+$NS_RT tc class add dev ethRt1 parent 1:    classid 1:11 htb rate ${rate}mbps
 $NS_RT tc qdisc add dev ethRt1 parent 1:11 handle 12:0 netem delay ${delay}ms
 
-$NS_RT tc qdisc add dev ethRt3 handle 1: root   htb default 11
-$NS_RT tc class add dev ethRt3 parent 1:    classid 1:11 htb rate 1mbps
+$NS_RT tc qdisc add dev ethRt3 handle 1: root   htb default 11 r2q $r2q
+$NS_RT tc class add dev ethRt3 parent 1:    classid 1:11 htb rate ${rate}mbps
 $NS_RT tc qdisc add dev ethRt3 parent 1:11 handle 12:0 netem delay 5ms
 
 # for server-to-client traffic
-$NS_RT tc qdisc add dev ethRt2 handle 1: root   htb default 11
-$NS_RT tc class add dev ethRt2 parent 1:    classid 1:11 htb rate 1mbps
+$NS_RT tc qdisc add dev ethRt2 handle 1: root   htb default 11 r2q $r2q
+$NS_RT tc class add dev ethRt2 parent 1:    classid 1:11 htb rate ${rate}mbps
 $NS_RT tc qdisc add dev ethRt2 parent 1:11 handle 12:0 netem delay 5ms
 
+$NS_RT tc qdisc show dev ethRt1
 
 $NS1 ethtool -K veth1 tso off gso off gro off 2> /dev/null
 $NS3 ethtool -K veth3 tso off gso off gro off 2> /dev/null
@@ -154,35 +154,29 @@ sysctl_config
 server1_IP="10.1.1.1"
 server3_IP="10.1.3.3"
 
-set -x
-if [ $3 -eq 1 ]; then
-	parent_dir="trace-uto"
-else
-	parent_dir="trace-uto-disabled"
-fi
-
-outdir=${parent_dir}/delay-${delay}
-mkdir -p $outdir
-echo "testdir: $outdir	id: $iter"
 
 
-$NS1  tcpdump -s 150 -i veth1  -w $outdir/dump_${iter}_server     &> /dev/null &
-$NS3  tcpdump -s 150 -i veth3  -w $outdir/dump_${iter}_server_alt &> /dev/null &
-$NS2  tcpdump -s 150 -i veth2  -w $outdir/dump_${iter}_client     &> /dev/null &
+$NS1  tcpdump -s 150 -i veth1  -w dump_server     &> /dev/null &
+$NS3  tcpdump -s 150 -i veth3  -w dump_server_alt &> /dev/null &
+$NS2  tcpdump -s 150 -i veth2  -w dump_client     &> /dev/null &
 sleep 0.2
 
+#set -x
 
 # start sshd in the server's netns
 $NS1 /usr/sbin/sshd -o PidFile=/run/sshd-ns1.pid
 $NS3 /usr/sbin/sshd -o PidFile=/run/sshd-ns3.pid
 
-$NS2 ./rsync_uto.sh $server1_IP  $server3_IP &
+for i in {1..1000}; do
+$NS2 ./rsync_uto.sh $server1_IP  $server3_IP $i  2> /dev/null &
+done
 
-sleep 4
+sleep 10
 
 $NS_RT ip link set down dev ethRt1
-wait `pgrep  rsync_uto.sh`
-echo "wait done"
-#sleep 10
+#wait `pgrep  rsync_uto.sh`
+#echo "wait done"
+
+sleep 4
 
 finish
