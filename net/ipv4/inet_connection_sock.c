@@ -532,6 +532,17 @@ void inet_csk_reset_keepalive_timer(struct sock *sk, unsigned long len)
 }
 EXPORT_SYMBOL(inet_csk_reset_keepalive_timer);
 
+void inet_csk_delack_init(struct sock *sk)
+{
+	struct inet_connection_sock *icsk = inet_csk(sk);
+	memset(&inet_csk(sk)->icsk_ack, 0, sizeof(inet_csk(sk)->icsk_ack));
+	icsk->icsk_ack.tcp_delack_min = TCP_DELACK_MIN_DEFAULT;
+	icsk->icsk_ack.tcp_delack_max = TCP_DELACK_MAX_DEFAULT;
+	/* delay 1 full segment before immediate ack */
+	icsk->icsk_ack.tcp_delack_segs = 1;
+}
+EXPORT_SYMBOL(inet_csk_delack_init);
+
 struct dst_entry *inet_csk_route_req(const struct sock *sk,
 				     struct flowi4 *fl4,
 				     const struct request_sock *req)

@@ -183,7 +183,7 @@ static void dccp_delack_timer(struct timer_list *t)
 		icsk->icsk_ack.blocked = 1;
 		__NET_INC_STATS(sock_net(sk), LINUX_MIB_DELAYEDACKLOCKED);
 		sk_reset_timer(sk, &icsk->icsk_delack_timer,
-			       jiffies + TCP_DELACK_MIN);
+			       jiffies + icsk->icsk_ack.tcp_delack_min);
 		goto out;
 	}
 
