@@ -1617,8 +1617,9 @@ void tcp_cleanup_rbuf(struct sock *sk, int copied)
 		   /* Delayed ACKs frequently hit locked sockets during bulk
 		    * receive. */
 		if (icsk->icsk_ack.blocked ||
-		    /* Once-per-two-segments ACK was not sent by tcp_input.c */
-		    tp->rcv_nxt - tp->rcv_wup > icsk->icsk_ack.rcv_mss ||
+		    /* Once-per-N-segments ACK was not sent by tcp_input.c */
+		    //tp->rcv_nxt - tp->rcv_wup > icsk->icsk_ack.rcv_mss ||
+		    tp->rcv_nxt - tp->rcv_wup > inet_csk_delack_thresh(sk) ||
 		    /*
 		     * If this read emptied read buffer, we send ACK, if
 		     * connection is not bidirectional, user drained
@@ -2514,6 +2515,7 @@ int tcp_disconnect(struct sock *sk, int flags)
 	 * issue in __tcp_select_window()
 	 */
 	icsk->icsk_ack.rcv_mss = TCP_MIN_MSS;
+
 	memset(&tp->rx_opt, 0, sizeof(tp->rx_opt));
 	__sk_dst_reset(sk);
 	dst_release(sk->sk_rx_dst);

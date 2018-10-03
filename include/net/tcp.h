@@ -126,14 +126,15 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
 				  * TIME-WAIT timer.
 				  */
 
-#define TCP_DELACK_MAX	((unsigned)(HZ/5))	/* maximal time to delay before sending an ACK */
+#define TCP_DELACK_MAX_DEFAULT	((unsigned)(HZ/5))	/* maximal time to delay before sending an ACK */
 #if HZ >= 100
-#define TCP_DELACK_MIN	((unsigned)(HZ/25))	/* minimal time to delay before sending an ACK */
+#define TCP_DELACK_MIN_DEFAULT	((unsigned)(HZ/25))	/* minimal time to delay before sending an ACK */
 #define TCP_ATO_MIN	((unsigned)(HZ/25))
 #else
-#define TCP_DELACK_MIN	4U
+#define TCP_DELACK_MIN_DEFAULT	4U
 #define TCP_ATO_MIN	4U
 #endif
+
 #define TCP_RTO_MAX	((unsigned)(120*HZ))
 #define TCP_RTO_MIN	((unsigned)(HZ/5))
 #define TCP_TIMEOUT_MIN	(2U) /* Min timeout for TCP timers in jiffies */
