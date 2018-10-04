@@ -74,15 +74,15 @@ $NS_BR ip link set up dev br
 #add delay and bw
 # for client-to-server traffic
 $NS_BR tc qdisc add dev ethBr1 handle 1: root   htb default 11
-$NS_BR tc class add dev ethBr1 parent 1:    classid 1:11 htb rate 5mbps
+$NS_BR tc class add dev ethBr1 parent 1:    classid 1:11 htb rate 1mbps
 $NS_BR tc qdisc add dev ethBr1 parent 1:11 handle 12:0 netem delay 40ms
 # will crash
 #$NS_BR tc qdisc add dev ethBr1 parent 12:0  fq_codel limit 1000  target 3ms  interval 40ms
 
 # for server-to-client traffic
 $NS_BR tc qdisc add dev ethBr2 handle 1: root   htb default 11
-$NS_BR tc class add dev ethBr2 parent 1:    classid 1:11 htb rate 5mbps
-$NS_BR tc qdisc add dev ethBr2 parent 1:11 handle 12:0 netem delay 20ms
+$NS_BR tc class add dev ethBr2 parent 1:    classid 1:11 htb rate 1mbps
+$NS_BR tc qdisc add dev ethBr2 parent 1:11 handle 12:0 netem delay 40ms
 
 # has no effect
 $NS_BR tc qdisc add dev br root  fq_codel limit 1000  target 3ms  interval 40ms
@@ -108,7 +108,7 @@ $NS1  python3 -m http.server 80 &
 sleep 1
 
 # client will self-terminate in m seconds
-$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 3  -o /dev/null
+$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 2  -o /dev/null
 
 pkill tcpdump
 pkill tcpdump
