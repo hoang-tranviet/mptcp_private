@@ -127,6 +127,10 @@ enum {
 
 #define TCP_CM_INQ		TCP_INQ
 
+#define TCP_DELACK_SEGS         223 /* Number of segments per delayed ack */
+#define TCP_DELACK_MIN          224 /* minimum delayed ack, in miliseconds */
+#define TCP_DELACK_MAX          225 /* maximum delayed ack, in miliseconds */
+
 #define TCP_REPAIR_ON		1
 #define TCP_REPAIR_OFF		0
 #define TCP_REPAIR_OFF_NO_WP	-1	/* Turn off without window probes */

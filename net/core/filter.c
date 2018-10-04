@@ -4016,6 +4016,10 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 				return -EINVAL;
 
 			val = *((int *)optval);
+
+			if (val <= 0)
+				return -EINVAL;
+
 			/* Only some options are supported */
 			switch (optname) {
 			case TCP_BPF_IW:
@@ -4043,6 +4047,17 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 					break;
 				}
 				icsk->icsk_user_timeout = val;
+				break;
+			case TCP_DELACK_SEGS:
+				icsk->icsk_ack.tcp_delack_segs = val;
+				break;
+
+			case TCP_DELACK_MIN:
+				icsk->icsk_ack.tcp_delack_min = val;
+				break;
+
+			case TCP_DELACK_MAX:
+				icsk->icsk_ack.tcp_delack_max = val;
 				break;
 			default:
 				ret = -EINVAL;
@@ -4098,6 +4113,16 @@ BPF_CALL_5(bpf_getsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 		case TCP_BPF_USER_TIMEOUT:
 			icsk = inet_csk(sk);
 			*((int *)optval) = (int)icsk->icsk_user_timeout;
+			break;
+		case TCP_DELACK_SEGS:
+			*((int *)optval) = (int)icsk->icsk_ack.tcp_delack_segs;
+			break;
+		case TCP_DELACK_MIN:
+			*((int *)optval) = (int)icsk->icsk_ack.tcp_delack_min;
+			break;
+		case TCP_DELACK_MAX:
+			*((int *)optval) = (int)icsk->icsk_ack.tcp_delack_max;
+			break;
 		default:
 			goto err_clear;
 		}
