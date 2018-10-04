@@ -129,6 +129,10 @@ enum {
 #define TCP_FASTOPEN_KEY	33	/* Set the key for Fast Open (cookie) */
 #define TCP_FASTOPEN_NO_COOKIE	34	/* Enable TFO without a TFO cookie */
 
+#define TCP_DELACK_SEGS         223 /* Number of segments per delayed ack */
+#define TCP_DELACK_MIN          224 /* minimum delayed ack, in miliseconds */
+#define TCP_DELACK_MAX          225 /* maximum delayed ack, in miliseconds */
+
 #define MPTCP_ENABLED		42
 #define MPTCP_SCHEDULER		43
 #define MPTCP_PATH_MANAGER	44
