@@ -108,7 +108,10 @@ $NS1  python3 -m http.server 80 &
 sleep 1
 
 # client will self-terminate in m seconds
-$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 2  -o /dev/null
+$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 4  -o /dev/null
+
+sleep 1
+$NS2  netstat -s
 
 pkill tcpdump
 pkill tcpdump
