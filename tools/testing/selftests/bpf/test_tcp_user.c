@@ -112,6 +112,9 @@ int main(int argc, char **argv)
 		SYSTEM("./my_net_uto.sh");
 	}
 	else
+	if (strcmp(file, "bpf_tcp_delayed_ack__wifi_client.o") == 0) {
+		SYSTEM("./my_net_delay_ack.sh");
+	} else
 		SYSTEM("./my_net.sh");
 
 	if (debug_flag) {
