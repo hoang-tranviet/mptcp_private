@@ -34,6 +34,7 @@ TEST_GEN_FILES = test_pkt_access.o test_xdp.o test_l4lb.o test_tcp_estats.o test
 	sample_map_ret0.o test_tcpbpf_kern.o test_stacktrace_build_id.o \
 	bpf_tcp_uto_kern.o \
 	bpf_tcp_delayed_ack.o \
+	bpf_tcp_delayed_ack__wifi_client.o \
 	sockmap_tcp_msg_prog.o connect4_prog.o connect6_prog.o test_adjust_tail.o \
 	test_btf_haskv.o test_btf_nokv.o test_sockmap_kern.o test_tunnel_kern.o \
 	test_get_stack_rawtp.o test_sockmap_kern.o test_sockhash_kern.o \
