@@ -1215,8 +1215,15 @@ int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
 
 	icsk->icsk_af_ops->send_check(sk, skb);
 
-	if (likely(tcb->tcp_flags & TCPHDR_ACK))
+	if (likely(tcb->tcp_flags & TCPHDR_ACK)) {
+		if ((ntohs(th->source) != 22) && (ntohs(th->dest) != 22))
+			trace_printk("sp:%u dp:%u quickacks left:%u before ack seq: %u\n",
+			 ntohs(th->source), ntohs(th->dest), icsk->icsk_ack.quick, tp->rcv_nxt);
 		tcp_event_ack_sent(sk, tcp_skb_pcount(skb));
+		if ((ntohs(th->source) != 22) && (ntohs(th->dest) != 22))
+			trace_printk("sp:%u dp:%u quickacks left: %u \n",
+			 ntohs(th->source), ntohs(th->dest), icsk->icsk_ack.quick);
+	}
 
 	if (skb->len != tcp_header_size) {
 		tcp_event_data_sent(tp, sk);

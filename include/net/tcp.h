@@ -464,14 +464,25 @@ static inline void tcp_dec_quickack_mode(struct sock *sk,
 					 const unsigned int pkts)
 {
 	struct inet_connection_sock *icsk = inet_csk(sk);
+	struct inet_sock *inet = inet_sk(sk);
 
 	if (icsk->icsk_ack.quick) {
 		if (pkts >= icsk->icsk_ack.quick) {
+			if ((ntohs(inet->inet_sport) != 22) && (ntohs(inet->inet_dport) != 22))
+				trace_printk("sp:%u dp:%u quickacks: %u  pkts:%u, leave QA mode \n",
+				ntohs(inet->inet_sport), ntohs(inet->inet_dport),
+				icsk->icsk_ack.quick, pkts);
 			icsk->icsk_ack.quick = 0;
 			/* Leaving quickack mode we deflate ATO. */
 			icsk->icsk_ack.ato   = TCP_ATO_MIN;
-		} else
+		} else {
+			if ((ntohs(inet->inet_sport) != 22) && (ntohs(inet->inet_dport) != 22))
+				trace_printk("sp:%u dp:%u quickacks: %u  pkts:%u \n",
+				ntohs(inet->inet_sport), ntohs(inet->inet_dport),
+				icsk->icsk_ack.quick, pkts);
+
 			icsk->icsk_ack.quick -= pkts;
+		}
 	}
 }
 

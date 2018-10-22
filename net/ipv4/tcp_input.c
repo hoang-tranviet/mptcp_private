@@ -178,6 +178,10 @@ static void tcp_incr_quickack(struct sock *sk)
 void tcp_enter_quickack_mode(struct sock *sk)
 {
 	struct inet_connection_sock *icsk = inet_csk(sk);
+	struct inet_sock *inet = inet_sk(sk);
+	if ((ntohs(inet->inet_sport) != 22) && (ntohs(inet->inet_dport) != 22))
+		trace_printk("%s \n", __func__);
+
 	tcp_incr_quickack(sk);
 	icsk->icsk_ack.pingpong = 0;
 	icsk->icsk_ack.ato = TCP_ATO_MIN;
@@ -345,11 +349,17 @@ static void tcp_sndbuf_expand(struct sock *sk)
 static int __tcp_grow_window(const struct sock *sk, const struct sk_buff *skb)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
+	struct inet_sock *inet = inet_sk(sk);
+
 	/* Optimize this! */
 	int truesize = tcp_win_from_space(sk, skb->truesize) >> 1;
 	int window = tcp_win_from_space(sk, sock_net(sk)->ipv4.sysctl_tcp_rmem[2]) >> 1;
 
 	while (tp->rcv_ssthresh <= window) {
+		if ((ntohs(inet->inet_sport) != 22) && (ntohs(inet->inet_dport) != 22))
+			trace_printk("%s: rcv_ssthresh:%u   esti. rbuf: %u \t esti. truesize:%u skb len:%u \n",
+			  __func__, tp->rcv_ssthresh, window, truesize, skb->len);
+
 		if (truesize <= skb->len)
 			return 2 * inet_csk(sk)->icsk_ack.rcv_mss;
 
@@ -364,6 +374,7 @@ static void tcp_grow_window(struct sock *sk, const struct sk_buff *skb)
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct sock *meta_sk = mptcp(tp) ? mptcp_meta_sk(sk) : sk;
 	struct tcp_sock *meta_tp = tcp_sk(meta_sk);
+	struct inet_sock *inet = inet_sk(sk);
 
 	if (is_meta_sk(sk))
 		return;
@@ -373,19 +384,30 @@ static void tcp_grow_window(struct sock *sk, const struct sk_buff *skb)
 	    (int)meta_tp->rcv_ssthresh < tcp_space(meta_sk) &&
 	    !tcp_under_memory_pressure(sk)) {
 		int incr;
+	//	int logging = (ntohs(inet->inet_sport) != 22) && (ntohs(inet->inet_dport) != 22);
 
 		/* Check #2. Increase window, if skb with such overhead
 		 * will fit to rcvbuf in future.
 		 */
-		if (tcp_win_from_space(sk, skb->truesize) <= skb->len)
+		if (tcp_win_from_space(sk, skb->truesize) <= skb->len) {
+			//if (logging)
+			if ((ntohs(inet->inet_sport) != 22) && (ntohs(inet->inet_dport) != 22))
+				trace_printk("%s: not bloated, incr rwnd by 2\n", __func__);
 			incr = 2 * meta_tp->advmss;
-		else
+		}
+		else {
+			//if (logging)
+			if ((ntohs(inet->inet_sport) != 22) && (ntohs(inet->inet_dport) != 22))
+				trace_printk("%s: test __tcp_grow_window\n",__func__);
 			incr = __tcp_grow_window(meta_sk, skb);
-
+		}
 		if (incr) {
 			incr = max_t(int, incr, 2 * skb->len);
 			meta_tp->rcv_ssthresh = min(meta_tp->rcv_ssthresh + incr,
 					            meta_tp->window_clamp);
+			//if (logging)
+			if ((ntohs(inet->inet_sport) != 22) && (ntohs(inet->inet_dport) != 22))
+				trace_printk("%s: increase quick from: %d \n", __func__, inet_csk(sk)->icsk_ack.quick);
 			inet_csk(sk)->icsk_ack.quick |= 1;
 		}
 	}
@@ -651,6 +673,7 @@ static void tcp_event_data_recv(struct sock *sk, struct sk_buff *skb)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct inet_connection_sock *icsk = inet_csk(sk);
+	struct inet_sock *inet = inet_sk(sk);
 	u32 now;
 
 	inet_csk_schedule_ack(sk);
@@ -665,6 +688,8 @@ static void tcp_event_data_recv(struct sock *sk, struct sk_buff *skb)
 		/* The _first_ data packet received, initialize
 		 * delayed ACK engine.
 		 */
+		if ((ntohs(inet->inet_sport) != 22) && (ntohs(inet->inet_dport) != 22))
+			trace_printk("%s: first data arrived, init quickack \n", __func__);
 		tcp_incr_quickack(sk);
 		icsk->icsk_ack.ato = TCP_ATO_MIN;
 	} else {
@@ -681,6 +706,8 @@ static void tcp_event_data_recv(struct sock *sk, struct sk_buff *skb)
 			/* Too long gap. Apparently sender failed to
 			 * restart window, so that we send ACKs quickly.
 			 */
+			if ((ntohs(inet->inet_sport) != 22) && (ntohs(inet->inet_dport) != 22))
+				trace_printk("%s: too long gap: incr quickack \n", __func__);
 			tcp_incr_quickack(sk);
 			sk_mem_reclaim(sk);
 		}
@@ -4182,6 +4209,10 @@ static void tcp_dsack_extend(struct sock *sk, u32 seq, u32 end_seq)
 static void tcp_send_dupack(struct sock *sk, const struct sk_buff *skb)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
+	struct inet_sock *inet = inet_sk(sk);
+
+	if ((ntohs(inet->inet_sport) != 22) && (ntohs(inet->inet_dport) != 22))
+		trace_printk("%s \n", __func__);
 
 	if (TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq &&
 	    before(TCP_SKB_CB(skb)->seq, tp->rcv_nxt)) {
@@ -4727,6 +4758,7 @@ queue_and_out:
 		tcp_dsack_set(sk, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq);
 
 out_of_window:
+		trace_printk("oow: switch to quickack mode!\n");
 		tcp_enter_quickack_mode(sk);
 		inet_csk_schedule_ack(sk);
 drop:
