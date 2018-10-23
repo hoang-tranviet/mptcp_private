@@ -5119,6 +5119,12 @@ static void __tcp_ack_snd_check(struct sock *sk, int ofo_possible)
 	    /* We have out of order data. */
 	    (ofo_possible && !RB_EMPTY_ROOT(&tp->out_of_order_queue))) {
 		/* Then ack it now */
+		pr_err("%s: acking bytes:%d delack_thresh:%d   quickack mode:%d left:%d ooo:%d",
+			 __func__,
+			tp->rcv_nxt - tp->rcv_wup, inet_csk_delack_thresh(sk),
+			tcp_in_quickack_mode(sk), inet_csk(sk)->icsk_ack.quick,
+			ofo_possible && !RB_EMPTY_ROOT(&tp->out_of_order_queue));
+
 		tcp_send_ack(sk);
 	} else {
 		/* Else, send delayed ack. */

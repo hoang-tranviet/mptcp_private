@@ -1630,8 +1630,14 @@ void tcp_cleanup_rbuf(struct sock *sk, int copied)
 		     ((icsk->icsk_ack.pending & ICSK_ACK_PUSHED2) ||
 		      ((icsk->icsk_ack.pending & ICSK_ACK_PUSHED) &&
 		       !icsk->icsk_ack.pingpong)) &&
-		      !atomic_read(&sk->sk_rmem_alloc)))
+		      !atomic_read(&sk->sk_rmem_alloc))) {
+
+			if (tp->rcv_nxt - tp->rcv_wup > inet_csk_delack_thresh(sk))
+				pr_err("%s: acking bytes:%d delack_thresh:%d ACK_PUSHED:%d ACK_PUSHED2:%d", __func__,
+					tp->rcv_nxt - tp->rcv_wup, inet_csk_delack_thresh(sk),
+					icsk->icsk_ack.pending & ICSK_ACK_PUSHED, icsk->icsk_ack.pending & ICSK_ACK_PUSHED2);
 			time_to_ack = true;
+			}
 	}
 
 	/* We send an ACK if we can now advertise a non-zero window
@@ -1652,8 +1658,10 @@ void tcp_cleanup_rbuf(struct sock *sk, int copied)
 			 * We can advertise it now, if it is not less than current one.
 			 * "Lots" means "at least twice" here.
 			 */
-			if (new_window && new_window >= 2 * rcv_window_now)
+			if (new_window && new_window >= 2 * rcv_window_now) {
+				pr_err("%s: advertise window:%u ", __func__, new_window);
 				time_to_ack = true;
+			}
 		}
 	}
 	if (time_to_ack)
