@@ -1138,7 +1138,6 @@ int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
 
 		opts.extending_len = extending_len;
 		tcp_options_size += extending_len;
-		pr_err("tcp_options_size after: %d\n", tcp_options_size);
 	}
 	tcp_header_size = tcp_options_size + sizeof(struct tcphdr);
 
