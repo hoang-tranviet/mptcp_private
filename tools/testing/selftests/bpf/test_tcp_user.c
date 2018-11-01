@@ -104,6 +104,15 @@ int main(int argc, char **argv)
 		goto err;
 	}
 
+	if (strcmp(file, "bpf_tcp_option_insert.o") == 0) {
+		SYSTEM("./tcp_stress_test.sh  insert");
+	} else
+	if (strcmp(file, "bpf_tcp_option_stress_test.o") == 0) {
+		SYSTEM("./tcp_stress_test.sh  insert parse");
+	} else
+	if (strcmp(file, "bpf_tcp_option_sockopt_stress_test.o") == 0) {
+		SYSTEM("./tcp_stress_test.sh  insert parse sockopt");
+	} else
 	if (strncmp(file, "bpf_tcp_cc_", 10) == 0) {
 		SYSTEM("./my_net_cc.sh");
 	} else
