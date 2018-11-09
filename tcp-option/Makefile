@@ -20,7 +20,8 @@ TEST_GEN_PROGS = test_tcp_user
 
 TEST_GEN_FILES = bpf_tcp_uto_kern.o bpf_tcp_cc_kern.o \
 	bpf_tcp_cc_reno.o bpf_tcp_cc_cubic.o bpf_tcp_cc_vegas.o bpf_tcp_cc_bbr.o \
-	bpf_tcp_delayed_ack.o
+	bpf_tcp_delayed_ack.o \
+	bpf_tcp_iw.o \
 # Compile but not part of 'make run_tests'
 TEST_GEN_PROGS_EXTENDED = test_libbpf_open
 

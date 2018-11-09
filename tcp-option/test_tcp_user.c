@@ -107,6 +107,9 @@ int main(int argc, char **argv)
 	if (strncmp(file, "bpf_tcp_cc_", 10) == 0) {
 		SYSTEM("./my_net_cc.sh");
 	} else
+	if (strcmp(file, "bpf_tcp_iw.o") == 0) {
+		SYSTEM("./my_net_iw.sh");
+	} else
 	if (strcmp(file, "bpf_tcp_uto_kern.o") == 0) {
 		int i, j;
 		unsigned int delay[] = { 10, 50, 100, 500};
