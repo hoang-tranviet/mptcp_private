@@ -20,6 +20,7 @@
 #include <linux/types.h>
 #include <linux/bug.h>
 #include <linux/refcount.h>
+#include <linux/cgroup.h>
 
 #include <net/sock.h>
 
@@ -67,6 +68,7 @@ struct request_sock {
 	u32				*saved_syn;
 	u32				secid;
 	u32				peer_secid;
+	struct sock_cgroup_data		sk_cgrp_data;
 };
 
 static inline struct request_sock *inet_reqsk(const struct sock *sk)
@@ -102,6 +104,8 @@ reqsk_alloc(const struct request_sock_ops *ops, struct sock *sk_listener,
 	sk_tx_queue_clear(req_to_sk(req));
 	req->saved_syn = NULL;
 	refcount_set(&req->rsk_refcnt, 0);
+	/* copy cgroup info from sk_listener to new req sk */
+	memcpy(&req->sk_cgrp_data, &sk_listener->sk_cgrp_data, sizeof(struct sock_cgroup_data));
 
 	return req;
 }
