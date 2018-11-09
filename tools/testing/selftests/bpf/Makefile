@@ -36,6 +36,7 @@ TEST_GEN_FILES = test_pkt_access.o test_xdp.o test_l4lb.o test_tcp_estats.o test
 	bpf_tcp_cc_reno.o bpf_tcp_cc_cubic.o bpf_tcp_cc_vegas.o bpf_tcp_cc_bbr.o \
 	bpf_tcp_delayed_ack.o \
 	bpf_tcp_delayed_ack__wifi_client.o \
+	bpf_tcp_iw.o \
 	sockmap_tcp_msg_prog.o connect4_prog.o connect6_prog.o
 
 # Order correspond to 'make run_tests' order
