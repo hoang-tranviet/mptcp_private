@@ -1550,6 +1550,7 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
 		      struct proto *prot, int kern)
 {
 	struct sock *sk;
+	struct sock_cgroup_data *skcd;
 
 	sk = sk_prot_alloc(prot, priority | __GFP_ZERO, family);
 	if (sk) {
@@ -1571,7 +1572,14 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
 		refcount_set(&sk->sk_wmem_alloc, 1);
 
 		mem_cgroup_sk_alloc(sk);
+
+		skcd = &sk->sk_cgrp_data;
+		trace_printk("full sk_cgrp_data: val:%llu is_data:%u padding:%u prioidx:%u classid:%u\n",
+				skcd->val, skcd->is_data, skcd->padding, skcd->prioidx, skcd->classid);
+
 		cgroup_sk_alloc(&sk->sk_cgrp_data);
+		trace_printk("full sk_cgrp_data: val:%llu is_data:%u padding:%u prioidx:%u classid:%u\n",
+				skcd->val, skcd->is_data, skcd->padding, skcd->prioidx, skcd->classid);
 		sock_update_classid(&sk->sk_cgrp_data);
 		sock_update_netprioidx(&sk->sk_cgrp_data);
 	}

@@ -86,6 +86,7 @@ reqsk_alloc(const struct request_sock_ops *ops, struct sock *sk_listener,
 	    bool attach_listener)
 {
 	struct request_sock *req;
+	struct sock_cgroup_data *skcd;
 
 	req = kmem_cache_alloc(ops->slab, GFP_ATOMIC | __GFP_NOWARN);
 	if (!req)
@@ -104,8 +105,13 @@ reqsk_alloc(const struct request_sock_ops *ops, struct sock *sk_listener,
 	sk_tx_queue_clear(req_to_sk(req));
 	req->saved_syn = NULL;
 	refcount_set(&req->rsk_refcnt, 0);
-	cgroup_sk_alloc(&req->sk_cgrp_data);
 
+	skcd = &req->sk_cgrp_data;
+	trace_printk("req->sk_cgrp_data: val:%llu is_data:%u padding:%u prioidx:%u classid:%u\n",
+			 skcd->val, skcd->is_data, skcd->padding, skcd->prioidx, skcd->classid);
+	cgroup_reqsk_alloc(&req->sk_cgrp_data);
+	trace_printk("req->sk_cgrp_data: val:%llu is_data:%u padding:%u prioidx:%u classid:%u\n\n",
+			 skcd->val, skcd->is_data, skcd->padding, skcd->prioidx, skcd->classid);
 	return req;
 }
 

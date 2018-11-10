@@ -5827,6 +5827,43 @@ void cgroup_sk_alloc(struct sock_cgroup_data *skcd)
 	rcu_read_unlock();
 }
 
+void cgroup_reqsk_alloc(struct sock_cgroup_data *skcd)
+{
+	if (cgroup_sk_alloc_disabled)
+		return;
+
+	/* Socket clone path */
+	if (skcd->val) {
+		/*
+		 * We might be cloning a socket which is left in an empty
+		 * cgroup and the cgroup might have already been rmdir'd.
+		 * Don't use cgroup_get_live().
+		 */
+		cgroup_get(sock_cgroup_ptr(skcd));
+		return;
+	}
+
+	rcu_read_lock();
+
+/*
+	while (true) {
+		struct css_set *cset;
+
+		cset = task_css_set(current);
+		if (likely(cgroup_tryget(cset->dfl_cgrp))) {
+			skcd->val = (unsigned long)cset->dfl_cgrp;
+			break;
+		}
+		cpu_relax();
+	}
+*/
+	struct css_set *cset;
+	cset = task_css_set(current);
+	trace_printk("cgroup_tryget:%d, skcd->val:%x\n", cgroup_tryget(cset->dfl_cgrp), cset->dfl_cgrp);
+
+	rcu_read_unlock();
+}
+
 void cgroup_sk_free(struct sock_cgroup_data *skcd)
 {
 	cgroup_put(sock_cgroup_ptr(skcd));
