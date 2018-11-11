@@ -2207,6 +2207,7 @@ static inline int tcp_call_bpf(struct sock *sk, int op, u32 nargs, u32 *args)
 		sock_ops.is_fullsock = 1;
 		sock_owned_by_me(sk);
 	}
+	else trace_printk("tcp_call_bpf: req sock\n");
 
 	sock_ops.sk = sk;
 	sock_ops.op = op;

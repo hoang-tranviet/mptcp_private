@@ -161,10 +161,12 @@ int __cgroup_bpf_check_dev_permission(short dev_type, u32 major, u32 minor,
 	int __ret = 0;							       \
 	if (cgroup_bpf_enabled && (sock_ops)->sk) {	       \
 		typeof(sk) __sk = sk_to_full_sk((sock_ops)->sk);	       \
-		if (__sk && sk_fullsock(__sk))				       \
+		if (__sk && sk_fullsock(__sk)){				       \
 			__ret = __cgroup_bpf_run_filter_sock_ops(__sk,	       \
 								 sock_ops,     \
 							 BPF_CGROUP_SOCK_OPS); \
+			trace_printk("ran sock_ops: %u \n", __ret);	}      \
+		else trace_printk("sk_to_full_sk() is not fullsock!\n");       \
 	}								       \
 	__ret;								       \
 })
