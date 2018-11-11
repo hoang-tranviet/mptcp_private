@@ -87,18 +87,28 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		break;
 	case BPF_TCP_PARSE_OPTIONS:
 		{
+		char fmt90[] = "sk state:%d full:%d segs_in:%u\n";
+		char fmt91[] = "segs_out:%u data_segs_out:%u rcv_nxt:%u \n";
+		bpf_trace_printk(fmt90, sizeof(fmt90), skops->state, skops->is_fullsock, skops->segs_in);
+		bpf_trace_printk(fmt91, sizeof(fmt91), skops->segs_out, skops->data_segs_out, skops->rcv_nxt);
+
 		unsigned int iw_opt, iw;
 		iw_opt = swap(skops->args[2]);
 		/* Keep the last 16 bits */
 		iw = iw_opt & 0x0000FFFF;
-		char fmt11[] = "rv:%d new iw: %u\n";
-		bpf_trace_printk(fmt11, sizeof(fmt11), rv, iw);
 
-		rv = bpf_setsockopt(skops, IPPROTO_TCP, TCP_BPF_IW, &iw,
-				    sizeof(iw));
-		rv += bpf_getsockopt(skops, IPPROTO_TCP, TCP_BPF_IW, &iw,
-				    sizeof(iw));
-		bpf_trace_printk(fmt11, sizeof(fmt11), rv, iw);
+		char fmt11[] = "iw: %u\n";
+		bpf_trace_printk(fmt11, sizeof(fmt11), iw);
+
+		char fmt13[] = "current cwnd: %u\n";
+		bpf_trace_printk(fmt13, sizeof(fmt13), skops->snd_cwnd);
+
+		rv = bpf_setsockopt(skops, IPPROTO_TCP, TCP_BPF_IW, &iw, sizeof(iw));
+		char fmt12[] = "rv: %d\n";
+		bpf_trace_printk(fmt12, sizeof(fmt12), rv);
+
+		/* note: TCP_BPF_IW has no getsockopt brother! */
+		bpf_trace_printk(fmt13, sizeof(fmt13), skops->snd_cwnd);
 		break;
 		}
 	default:
