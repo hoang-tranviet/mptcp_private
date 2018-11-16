@@ -23,6 +23,8 @@ NS_BR="ip netns exec nsBr "
 #set -x
 
 sysctl -w net.mptcp.mptcp_enabled=0
+sysctl -w net.ipv4.tcp_congestion_control=reno
+#sysctl -w net.ipv4.tcp_congestion_control=cubic
 
 # Clean
 $NS_BR ip link del ethBr1
@@ -115,6 +117,7 @@ $NS1 nginx
 sleep 1
 $NS1  netstat -s > netstat-$time-before
 
+#$NS2  wget $serverIP/missing/gs1.wac.edgecastcdn.net/8019B6/data.tumblr.com/2d8674fb4cb5ade09dba02dbebd5e05f/tumblr_ms82wimFSG1rlz4gso1_1280.jpg
 # client downloads all files of the website recursively
 cd epload
 #$NS2  node emulator/run.js http dependency_graphs/www.rakuten.co.jp_/
