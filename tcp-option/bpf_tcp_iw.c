@@ -23,7 +23,7 @@ struct tcp_option {
 	__u16 data;
 };
 
-#define IW 20 	/* #MSS */
+#define IW 40 	/* #MSS */
 #define DEBUG 0
 
 SEC("sockops")
@@ -60,7 +60,7 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 	case BPF_SOCK_OPS_RWND_INIT:
 		// enable proper sending of new unsent data during fast recovery
 		// see  tcp_default_init_rwnd() and RFC 3517, Section 4
-		rv = IW*2;
+		rv = IW*5;
 		break;
 	case BPF_TCP_OPTIONS_SIZE_CALC: {
 		int option_len = sizeof(opt);
