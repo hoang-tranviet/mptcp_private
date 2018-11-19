@@ -93,8 +93,6 @@ $NS_BR tc qdisc add dev ethBr2 parent 1:11 handle 12:0 netem delay 40ms
 $NS_BR tc -s -d class show dev ethBr2
 $NS_BR tc qdisc show
 
-read -p "Pause"
-
 $NS1 ethtool -K veth1 tso off gso off gro off 2> /dev/null
 $NS2 ethtool -K veth2 tso off gso off gro off 2> /dev/null
 
@@ -104,32 +102,68 @@ time=`date +%s`
 dump_server=$time+"-server.pcap"
 dump_client=$time+"-client.pcap"
 
-$NS1  tcpdump -s 128 -i veth1 -w dump-$time-server &
-$NS2  tcpdump -s 128 -i veth2 -w dump-$time-client &
-#$NS_BR  tcpdump -i ethBr1 -w dump_server_br &
-#$NS_BR  tcpdump -i ethBr2 -w dump_client_br &
-
 
 # remember to copy server objects to /usr/share/nginx/html
 fuser -k 80/tcp
 $NS1 nginx
 
-sleep 1
-$NS1  netstat -s > netstat-$time-before
-
 #$NS2  wget $serverIP/missing/gs1.wac.edgecastcdn.net/8019B6/data.tumblr.com/2d8674fb4cb5ade09dba02dbebd5e05f/tumblr_ms82wimFSG1rlz4gso1_1280.jpg
 # client downloads all files of the website recursively
 cd epload
+
+if [ $# -eq 0 ]
+then
+    test_type='default'
+else
+    test_type=$1
+fi
+
+###  run a single test  ###
+#$NS1  tcpdump -s 128 -i veth1  -w iw-server.pcap &
+#sleep 0.5
+#$NS1  netstat -s > /tmp/netstat-before
+
 #$NS2  node emulator/run.js http dependency_graphs/www.rakuten.co.jp_/
-$NS2  node emulator/run.js http dependency_graphs/www.tumblr.com_/
+#$NS2  node emulator/run.js http dependency_graphs/www.tumblr.com_/
 #$NS2  node emulator/run.js http dependency_graphs/twitter.com_/
-cd -
 
-sleep 1
-$NS1  netstat -s > netstat-$time-after
-colordiff netstat-$time-*
+#$NS1  netstat -s > /tmp/netstat-after
+#colordiff /tmp/netstat-before /tmp/netstat-after
+#sleep 0.5
+#pkill tcpdump
+###########################
 
-pkill tcpdump
-pkill tcpdump
+
+
+###  run experiments with all websites  ###
+testdir=results/$time/$test_type
+tracedir=$testdir/trace
+nsdir=$testdir/netstat
+mkdir -p $tracedir
+mkdir -p $nsdir
+
+for sitedir in dependency_graphs/*/
+do
+    tmp=${sitedir#*/}	 # remove prefix ending in "/"
+    site=${tmp%_*}	 # remove subfix starting by "_"
+    echo $site
+    $NS1  tcpdump -s 128 -i veth1  -w $tracedir/$site-server.pcap &> /dev/null &
+#    $NS2  tcpdump -s 128 -i veth2  -w $tracedir/$site-client.pcap &
+    $NS1  netstat -s > /tmp/netstat-before
+    sleep 0.5
+
+    for i in {1..3}; do
+	$NS2 node emulator/run.js http $sitedir >> $testdir/$test_type-$time-result
+    done
+    $NS1  netstat -s > /tmp/netstat-after
+    diff /tmp/netstat-before /tmp/netstat-after > $nsdir/$site
+    pkill tcpdump
+#    pkill tcpdump
+    sleep 0.5
+done
+
+###########################################
+$NS_BR tc -s -d class show dev ethBr2
+$NS_BR tc qdisc show
 
 $NS1 nginx -s quit

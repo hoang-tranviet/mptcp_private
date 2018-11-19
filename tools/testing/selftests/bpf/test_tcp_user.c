@@ -108,7 +108,7 @@ int main(int argc, char **argv)
 		SYSTEM("./my_net_cc.sh");
 	} else
 	if (strcmp(file, "bpf_tcp_iw.o") == 0) {
-		SYSTEM("./my_net_iw.sh");
+		SYSTEM("./my_net_iw.sh iw20");
 	} else
 	if (strcmp(file, "bpf_tcp_uto_kern.o") == 0) {
 		//debug_flag = 0;
