@@ -34,7 +34,7 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		.len = 4,   	// of this option struct
 		.data = IW << 8,// iw in little-endian
 	};
-	int bufsize = 1500000;
+	//int bufsize = 1500000;
 	int rv = 0;
 	int option_buffer;
 	int op;
@@ -48,20 +48,23 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 	/* client side */
 	case BPF_SOCK_OPS_TCP_CONNECT_CB:
 		rv = bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_OPTION_WRITE_FLAG);
-		/* Set sndbuf and rcvbuf of active connections */
 		char fmt0[] = "tcp connect callback\n";
 		bpf_trace_printk(fmt0, sizeof(fmt0));
+		/* Set sndbuf and rcvbuf of active connections
 		rv += bpf_setsockopt(skops, SOL_SOCKET, SO_SNDBUF, &bufsize,
 				    sizeof(bufsize));
 		rv += bpf_setsockopt(skops, SOL_SOCKET, SO_RCVBUF,
 				     &bufsize, sizeof(bufsize));
+		 */
 		break;
 	case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
 		// disable option insertion, no effect?
 		rv = bpf_sock_ops_cb_flags_set(skops, 0);
 		break;
 	case BPF_SOCK_OPS_RWND_INIT:
-		rv = IW;
+		// enable proper sending of new unsent data during fast recovery
+		// see  tcp_default_init_rwnd() and RFC 3517, Section 4
+		rv = IW*2;
 		break;
 	case BPF_TCP_OPTIONS_SIZE_CALC: {
 		int option_len = sizeof(opt);
@@ -84,11 +87,12 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 
 	/* server side */
 	case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
-		/* Set sndbuf and rcvbuf of passive connections */
+		/* Set sndbuf and rcvbuf of passive connections
 		rv = bpf_setsockopt(skops, SOL_SOCKET, SO_SNDBUF, &bufsize,
 				    sizeof(bufsize));
 		rv +=  bpf_setsockopt(skops, SOL_SOCKET, SO_RCVBUF,
 				      &bufsize, sizeof(bufsize));
+		 */
 		break;
 	case BPF_TCP_PARSE_OPTIONS:
 		if (DEBUG) {
