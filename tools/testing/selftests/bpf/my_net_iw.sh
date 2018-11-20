@@ -163,6 +163,7 @@ do
 done
 
 ###########################################
+$NS_BR tc -s -d class show dev ethBr1
 $NS_BR tc -s -d class show dev ethBr2
 $NS_BR tc qdisc show
 
