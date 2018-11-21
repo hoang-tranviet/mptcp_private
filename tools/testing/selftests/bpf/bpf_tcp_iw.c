@@ -57,10 +57,6 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 				     &bufsize, sizeof(bufsize));
 		 */
 		break;
-	case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
-		// disable option insertion, no effect?
-		rv = bpf_sock_ops_cb_flags_set(skops, 0);
-		break;
 	case BPF_SOCK_OPS_RWND_INIT:
 		// enable proper sending of new unsent data during fast recovery
 		// see  tcp_default_init_rwnd() and RFC 3517, Section 4
@@ -83,6 +79,9 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 			char fmt3[] = "OPTIONS_WRITE: %x \n";
 			bpf_trace_printk(fmt3, sizeof(fmt3), rv);
 		}
+		// disable option insertion from now
+		if (skops->data_segs_in > 1)
+			bpf_sock_ops_cb_flags_set(skops, 0);
 		break;
 
 	/* server side */
