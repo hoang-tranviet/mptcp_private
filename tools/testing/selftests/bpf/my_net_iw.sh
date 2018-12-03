@@ -93,8 +93,8 @@ $NS_BR tc qdisc add dev ethBr2 parent 1:11 handle 12:0 netem delay 40ms
 $NS_BR tc -s -d class show dev ethBr2
 $NS_BR tc qdisc show
 
-$NS1 ethtool -K veth1 tso off gso off gro off 2> /dev/null
-$NS2 ethtool -K veth2 tso off gso off gro off 2> /dev/null
+#$NS1 ethtool -K veth1 tso off gso off gro off 2> /dev/null
+#$NS2 ethtool -K veth2 tso off gso off gro off 2> /dev/null
 
 serverIP="10.1.1.1"
 serverPort=80
@@ -147,19 +147,19 @@ do
     tmp=${sitedir#*/}	 # remove prefix ending in "/"
     site=${tmp%_*}	 # remove subfix starting by "_"
     echo $site
-    $NS1  tcpdump -s 128 -i veth1  -w $tracedir/$site-server.pcap &> /dev/null &
+#    $NS1  tcpdump -s 128 -i veth1  -w $tracedir/$site-server.pcap &> /dev/null &
 #    $NS2  tcpdump -s 128 -i veth2  -w $tracedir/$site-client.pcap &
     $NS1  netstat -s > /tmp/netstat-before
-    sleep 0.5
+#    sleep 0.5
 
     for i in {1..3}; do
 	$NS2 node emulator/run.js http $sitedir >> $testdir/$test_type-$time-result
     done
     $NS1  netstat -s > /tmp/netstat-after
     diff /tmp/netstat-before /tmp/netstat-after > $nsdir/$site
-    pkill tcpdump
 #    pkill tcpdump
-    sleep 0.5
+#    pkill tcpdump
+#    sleep 0.5
 done
 
 ###########################################
