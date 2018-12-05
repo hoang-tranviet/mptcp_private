@@ -25,6 +25,7 @@ MAP COMMANDS
 |	**bpftool** **prog dump jited**  *PROG* [{**file** *FILE* | **opcodes**}]
 |	**bpftool** **prog pin** *PROG* *FILE*
 |	**bpftool** **prog load** *OBJ* *FILE*
+|	**bpftool** **prog tracelog**
 |	**bpftool** **prog help**
 |
 |	*PROG* := { **id** *PROG_ID* | **pinned** *FILE* | **tag** *PROG_TAG* }
@@ -68,6 +69,14 @@ DESCRIPTION
 		  Load bpf program from binary *OBJ* and pin as *FILE*.
 
 		  Note: *FILE* must be located in *bpffs* mount.
+
+	**bpftool prog tracelog**
+		  Dump the trace pipe of the system to the console (stdout).
+		  Hit <Ctrl+C> to stop printing. BPF programs can write to this
+		  trace pipe at runtime with the **bpf_trace_printk()** helper.
+		  This should be used only for debugging purposes. For
+		  streaming data from BPF programs to user space, one can use
+		  perf events (see also **bpftool-map**\ (8)).
 
 	**bpftool prog help**
 		  Print short help message.
