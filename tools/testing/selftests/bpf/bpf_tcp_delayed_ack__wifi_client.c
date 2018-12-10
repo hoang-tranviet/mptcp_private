@@ -39,23 +39,19 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		char fmt2[] = "client: active established\n";
 		bpf_trace_printk(fmt2, sizeof(fmt2));
 
-		if (!debug)
-			break;
-		bpf_getsockopt(skops, IPPROTO_TCP, TCP_DELACK_MIN, &delay, sizeof(delay));
-		bpf_getsockopt(skops, IPPROTO_TCP, TCP_DELACK_SEGS, &segs, sizeof(segs));
-		char fmt111[] = "client: delay: %u	segs: %u rv: %d\n";
-		bpf_trace_printk(fmt111, sizeof(fmt111), delay, segs, rv);
-
 		delay = 80; // ms
 		segs = 10;
 		rv = bpf_setsockopt(skops, IPPROTO_TCP, TCP_DELACK_MIN, &delay, sizeof(delay));
 		rv = bpf_setsockopt(skops, IPPROTO_TCP, TCP_DELACK_MAX, &delay, sizeof(delay));
 		rv+= bpf_setsockopt(skops, IPPROTO_TCP, TCP_DELACK_SEGS, &segs, sizeof(segs));
 
-		/* get new vals */
-		bpf_getsockopt(skops, IPPROTO_TCP, TCP_DELACK_MIN, &delay, sizeof(delay));
-		bpf_getsockopt(skops, IPPROTO_TCP, TCP_DELACK_SEGS, &segs, sizeof(segs));
-		bpf_trace_printk(fmt111, sizeof(fmt111), delay, segs, rv);
+		if (debug) {
+			/* get new vals */
+			bpf_getsockopt(skops, IPPROTO_TCP, TCP_DELACK_MIN, &delay, sizeof(delay));
+			bpf_getsockopt(skops, IPPROTO_TCP, TCP_DELACK_SEGS, &segs, sizeof(segs));
+			char fmt111[] = "client: delay: %u	segs: %u rv: %d\n";
+			bpf_trace_printk(fmt111, sizeof(fmt111), delay, segs, rv);
+		}
 		break;
 	}
 	case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
