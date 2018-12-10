@@ -46,9 +46,9 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 	 */
 	switch (op) {
 	/* client side */
-	case BPF_SOCK_OPS_TCP_CONNECT_CB:
+	case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
 		rv = bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_OPTION_WRITE_FLAG);
-		char fmt0[] = "tcp connect callback\n";
+		char fmt0[] = "client: established, inserting opt to 3rd ACK\n";
 		bpf_trace_printk(fmt0, sizeof(fmt0));
 		/* Set sndbuf and rcvbuf of active connections
 		rv += bpf_setsockopt(skops, SOL_SOCKET, SO_SNDBUF, &bufsize,
@@ -79,7 +79,7 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 			char fmt3[] = "OPTIONS_WRITE: %x \n";
 			bpf_trace_printk(fmt3, sizeof(fmt3), rv);
 		}
-		// disable option insertion from now
+		// disable option insertion after sending first data packet
 		if (skops->data_segs_in > 1)
 			bpf_sock_ops_cb_flags_set(skops, 0);
 		break;
