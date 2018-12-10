@@ -4698,11 +4698,11 @@ queue_and_out:
 		if (!RB_EMPTY_ROOT(&tp->out_of_order_queue)) {
 			tcp_ofo_queue(sk);
 
-			/* RFC5681. 4.2. SHOULD send immediate ACK, when
+			/* RFC2581. 4.2. SHOULD send immediate ACK, when
 			 * gap in queue is filled.
 			 */
 			if (RB_EMPTY_ROOT(&tp->out_of_order_queue))
-				inet_csk(sk)->icsk_ack.pending |= ICSK_ACK_NOW;
+				inet_csk(sk)->icsk_ack.pingpong = 0;
 		}
 
 		if (tp->rx_opt.num_sacks)
@@ -4737,6 +4737,8 @@ drop:
 	/* Out of window. F.e. zero window probe. */
 	if (!before(TCP_SKB_CB(skb)->seq, tp->rcv_nxt + tcp_receive_window(tp)))
 		goto out_of_window;
+
+	tcp_enter_quickack_mode(sk);
 
 	if (before(TCP_SKB_CB(skb)->seq, tp->rcv_nxt)) {
 		/* Partial packet, seq < rcv_next < end_seq */
@@ -5114,8 +5116,8 @@ static void __tcp_ack_snd_check(struct sock *sk, int ofo_possible)
 	     tp->ops->__select_window(sk) >= tp->rcv_wnd) ||
 	    /* We ACK each frame or... */
 	    tcp_in_quickack_mode(sk) ||
-	    /* Protocol state mandates a one-time immediate ACK */
-	    inet_csk(sk)->icsk_ack.pending & ICSK_ACK_NOW) {
+	    /* We have out of order data. */
+	    (ofo_possible && !RB_EMPTY_ROOT(&tp->out_of_order_queue))) {
 		/* Then ack it now */
 		tcp_send_ack(sk);
 	} else {
