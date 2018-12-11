@@ -125,7 +125,7 @@ int main(int argc, char **argv)
 	}
 	else
 	if (strcmp(file, "bpf_tcp_delayed_ack__wifi_client.o") == 0) {
-		SYSTEM("./my_net_delay_ack.sh");
+		SYSTEM("./my_net_delay_ack_wifi.sh");
 	} else
 		SYSTEM("./my_net.sh");
 
