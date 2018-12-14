@@ -9,33 +9,6 @@
 #include "bpf_endian.h"
 #include "test_tcpbpf.h"
 
-struct bpf_map_def SEC("maps") global_map = {
-	.type = BPF_MAP_TYPE_ARRAY,
-	.key_size = sizeof(__u32),
-	.value_size = sizeof(struct tcpbpf_globals),
-	.max_entries = 2,
-};
-
-static inline void update_event_map(int event)
-{
-	__u32 key = 0;
-	struct tcpbpf_globals g, *gp;
-
-	gp = bpf_map_lookup_elem(&global_map, &key);
-	if (gp == NULL) {
-		struct tcpbpf_globals g = {0};
-
-		g.event_map |= (1 << event);
-		bpf_map_update_elem(&global_map, &key, &g,
-			    BPF_ANY);
-	} else {
-		g = *gp;
-		g.event_map |= (1 << event);
-		bpf_map_update_elem(&global_map, &key, &g,
-			    BPF_ANY);
-	}
-}
-
 static inline unsigned int swap(unsigned int num) {
 	return __builtin_bswap32(num);
 }
@@ -90,13 +63,6 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		/* Server will send option */
 		rv = bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_OPTION_WRITE_FLAG);
 
-/*		delay = 10;
-		bpf_setsockopt(skops, IPPROTO_TCP, TCP_DELACK_MIN, &delay, sizeof(delay));
-
-		delay = 1;
-		bpf_getsockopt(skops, IPPROTO_TCP, TCP_DELACK_MIN, &delay, sizeof(delay));
-		bpf_trace_printk(fmt111, sizeof(fmt111), delay);
-*/
 		break;
 	case BPF_TCP_OPTIONS_SIZE_CALC: {
 		int option_len = sizeof(struct tcp_option);
@@ -114,8 +80,8 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		struct tcp_option opt = {
 			.kind = OPTION_KIND,
 			.len  = 4,	// of this option struct
-			.rel_delay = 2,	// inverted, delay ACK timeout as fraction of RTT
-			.segs = 100,	// (# mss) amount of unacked data that triggers immediate ACK
+			.rel_delay = 4,	// inverted, delay ACK timeout as fraction of RTT
+			.segs = 10,	// (# mss) amount of unacked data that triggers immediate ACK
 		};
 		/* Server sends option */
 		memcpy(&option_buffer, &opt, sizeof(int));
@@ -126,6 +92,11 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 			bpf_trace_printk(fmt5, sizeof(fmt5), rv);
 		}
 		break;
+
+                // disable option insertion after sending first data packet
+                if (skops->data_segs_in > 1)
+                        bpf_sock_ops_cb_flags_set(skops, 0);
+
 	}
 	case BPF_TCP_PARSE_OPTIONS: {
 		/* client */
