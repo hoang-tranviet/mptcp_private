@@ -44,6 +44,19 @@ void read_trace_pipe(void)
 	}
 }
 
+static int bpf_find_map(const char *test, struct bpf_object *obj,
+			const char *name)
+{
+	struct bpf_map *map;
+
+	map = bpf_object__find_map_by_name(obj, name);
+	if (!map) {
+		printf("%s:FAIL:map '%s' not found\n", test, name);
+		return -1;
+	}
+	return bpf_map__fd(map);
+}
+
 #define SYSTEM(CMD)						\
 	do {							\
 		if (system(CMD)) {				\
@@ -103,6 +116,28 @@ int main(int argc, char **argv)
 		       error, strerror(errno));
 		goto err;
 	}
+
+
+	int map_fd = bpf_find_map(__func__, obj, "cong_map");
+	if (map_fd < 0)
+		goto err;
+
+	__u32 key  = 3;
+	char g[10] = "empty\0";
+	char cc[]  = "reno";
+	printf("bpf_map_lookup_elem: %s\n", g);
+	rv = bpf_map_update_elem(map_fd, &key, cc, BPF_ANY);
+	if (rv != 0) {
+		printf("FAILED: bpf_map_update_elem returns %d\n", rv);
+		goto err;
+	}
+	rv = bpf_map_lookup_elem(map_fd, &key, g);
+	if (rv != 0) {
+		printf("FAILED: bpf_map_lookup_elem returns %d\n", rv);
+		goto err;
+	}
+	printf("bpf_map_lookup_elem: %s\n", g);
+
 
 	if (strncmp(file, "bpf_tcp_cc_", 10) == 0) {
 		SYSTEM("./my_net_cc.sh");

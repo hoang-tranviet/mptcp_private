@@ -20,10 +20,11 @@ NS1="ip netns exec ns1 "
 NS2="ip netns exec ns2 "
 NS_BR="ip netns exec nsBr "
 
-set -x
+#set -x
 
 sysctl -w net.mptcp.mptcp_enabled=0
 sysctl -w net.ipv4.tcp_allowed_congestion_control="reno bbr cubic dctcp vegas"
+sysctl net.ipv4.tcp_congestion_control
 
 # Clean
 $NS_BR ip link del ethBr1
@@ -107,7 +108,8 @@ sleep 1
 
 # client will self-terminate in m seconds
 $NS2  curl $serverIP:$serverPort/vmlinux.o   -o /dev/null &
-sleep 11
+sleep 3
+sysctl net.ipv4.tcp_congestion_control
 
 pkill curl
 pkill tcpdump
