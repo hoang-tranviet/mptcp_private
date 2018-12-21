@@ -7,6 +7,7 @@
 #include <linux/socket.h>
 #include <linux/tcp.h>
 #include "bpf_helpers.h"
+#include "bpf_endian.h"
 
 // cannot be larger than 5: "invalid indirect read from stack off -44+5 size 6"
 #define CC_LENGTH 5
@@ -49,8 +50,8 @@ struct tcp_option {
 
 struct tcp_option opt = {
 	.kind = 66, 	// arbitrary
-	.len = 4,   	// of this option struct
-	.data = 0x0300, // will be swapped for big-endian
+	.len = sizeof(opt),   	// of this option struct
+	.data = bpf_htons(0x0003), // convert to NBO
 };
 
 SEC("sockops")
