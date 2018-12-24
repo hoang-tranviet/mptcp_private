@@ -149,11 +149,11 @@ $NS_BR tc qdisc add dev ethBr3 parent 1:11 handle 12:0 netem delay 40ms
 #$NS_BR tc qdisc add dev ethBr4 root handle 6:  tbf rate 2mbit  burst 10000 latency 100ms
 $NS_BR tc qdisc add dev ethBr2 handle 1: root   htb default 11
 $NS_BR tc class add dev ethBr2 parent 1:    classid 1:11 htb rate 5mbps
-$NS_BR tc qdisc add dev ethBr2 parent 1:11 handle 12:0 netem delay 20ms
+$NS_BR tc qdisc add dev ethBr2 parent 1:11 handle 12:0 netem delay 30ms
 
 $NS_BR tc qdisc add dev ethBr4 handle 1: root   htb default 11
 $NS_BR tc class add dev ethBr4 parent 1:    classid 1:11 htb rate 5mbps
-$NS_BR tc qdisc add dev ethBr4 parent 1:11 handle 12:0 netem delay 20ms
+$NS_BR tc qdisc add dev ethBr4 parent 1:11 handle 12:0 netem delay 30ms
 # has no effect
 #$NS_BR tc qdisc add dev ethBr2 parent 6:0  fq_codel limit 1000  target 3ms  interval 40ms
 
@@ -172,10 +172,10 @@ time=`date +%s`
 dump_server=$time+"-server.pcap"
 dump_client=$time+"-client.pcap"
 
-$NS1  tcpdump -i veth1 -w dump_1_server &
-$NS2  tcpdump -i veth2 -w dump_2_client &
-$NS1  tcpdump -i veth3 -w dump_3_server &
-$NS2  tcpdump -i veth4 -w dump_4_client &
+$NS1  tcpdump -i veth1 -s 120 -w dump_1_server &
+$NS2  tcpdump -i veth2 -s 120 -w dump_2_client &
+$NS1  tcpdump -i veth3 -s 120 -w dump_3_server &
+$NS2  tcpdump -i veth4 -s 120 -w dump_4_client &
 #$NS_BR  tcpdump -i ethBr1 -w dump_server_br &
 #$NS_BR  tcpdump -i ethBr2 -w dump_client_br &
 #$NS_BR  tcpdump -i br -w dump_br &
@@ -186,7 +186,7 @@ $NS1  python3 -m http.server 80 &
 sleep 1
 
 # client will self-terminate in (-m) seconds
-$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 5  -o /dev/null
+$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 30  -o /dev/null
 
 pkill tcpdump
 pkill tcpdump

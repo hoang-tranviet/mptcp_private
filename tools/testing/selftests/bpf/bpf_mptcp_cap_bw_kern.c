@@ -124,8 +124,8 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		if (rtt == 0)
 			break;
 		/* if this is a valid MSS, use it to estimate MTU */
-		if (skops->mss_cache > 100)
-			mtu = skops->mss_cache - 80;
+		if (skops->mss_cache > 0)
+			mtu = skops->mss_cache; // should +50;
 
 		clamp = bw*rtt/mtu;
 
