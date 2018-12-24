@@ -68,6 +68,7 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 	int option_len = sizeof(mp_opt);
 	int option_buffer;
 	int header_len;
+	unsigned int clamp;
 
 	op = (int) skops->op;
 
@@ -76,6 +77,8 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 	char fmt1[] = "active established callback\n";
 	char fmt4[] = "BPF_TCP_OPTIONS_SIZE_CALC  \t original:%d extend:%d bytes more\n";
 	char fmt3[] = "BPF_MPTCP_OPTIONS_WRITE \n";
+	char fmt10[] = "BPF_MPTCP_PARSE_OPTIONS: %d, %d, %x\n";
+	char fmt11[] = "real window clamp = %d \n";
 
 	switch (op) {
 	case BPF_SOCK_OPS_TCP_CONNECT_CB:
@@ -102,6 +105,32 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		// skops->reply_long = mp_opt;
 		memcpy(&option_buffer, &mp_opt, sizeof(int));
 		rv = option_buffer;
+		break;
+	case BPF_MPTCP_PARSE_OPTIONS:
+		/* This is on subflow socket */
+		if (v) {
+			bpf_getsockopt(skops, IPPROTO_TCP,
+						TCP_BPF_SNDCWND_CLAMP,
+						&clamp, sizeof(clamp));
+			bpf_trace_printk(fmt11, sizeof(fmt11), clamp);
+		}
+
+		/* get the parsed option, swap to host endian */
+		unsigned int option = bpf_ntohl(skops->args[2]);
+		/* Keep the last 16 bits */
+		clamp = option & 0x0000FFFF;
+		if (v)
+			bpf_trace_printk(fmt10, sizeof(fmt10),  skops->args[0],
+						skops->args[1], option);
+		rv = bpf_setsockopt(skops, IPPROTO_TCP,
+					    TCP_BPF_SNDCWND_CLAMP,
+					    &clamp, sizeof(clamp));
+		if (v) {
+			bpf_getsockopt(skops, IPPROTO_TCP,
+						TCP_BPF_SNDCWND_CLAMP,
+						&clamp, sizeof(clamp));
+			bpf_trace_printk(fmt11, sizeof(fmt11), clamp);
+		}
 		break;
 	default:
 		rv = -1;
