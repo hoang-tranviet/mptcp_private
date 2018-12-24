@@ -59,6 +59,8 @@
 #include <net/tcp.h>
 #include <linux/bpf_trace.h>
 
+#include <net/mptcp.h>
+
 /**
  *	sk_filter_trim_cap - run a packet through a socket filter
  *	@sk: sock associated with &sk_buff
@@ -3550,6 +3552,22 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 				tp->snd_cwnd_clamp = val;
 				tp->snd_ssthresh = val;
 				break;
+			case MPTCP_BACKUP_SFS_MODE:
+				if (!mptcp(tp)) {
+					pr_err("not an MPTCP connection!\n");
+					ret = -EINVAL;
+					break;
+				}
+				tp->mpcb->backup_sfs_mode = 1;
+				break;
+			case MPTCP_RTT_THRESHOLD:
+				if (!mptcp(tp)) {
+					pr_err("not an MPTCP connection!\n");
+					ret = -EINVAL;
+					break;
+				}
+				tp->mpcb->rtt_threshold = val;
+				break;
 			default:
 				ret = -EINVAL;
 			}
@@ -3596,6 +3614,16 @@ BPF_CALL_5(bpf_getsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 		case TCP_BPF_SNDCWND_CLAMP:
 			*((int *)optval) = (int) tcp_sk(sk)->snd_cwnd_clamp;
 			break;
+		case MPTCP_RTT_THRESHOLD:
+			{
+			struct tcp_sock *tp = tcp_sk(sk);
+			if (!mptcp(tp)) {
+				pr_err("not an MPTCP connection!\n");
+				break;
+				}
+			*((int *)optval) = (int) tp->mpcb->rtt_threshold;
+			break;
+			}
 		default:
 			goto err_clear;
 		}
