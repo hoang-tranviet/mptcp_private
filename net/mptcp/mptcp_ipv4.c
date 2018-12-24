@@ -320,6 +320,7 @@ int mptcp_init4_subsockets(struct sock *meta_sk, const struct mptcp_loc4 *loc,
 		goto error;
 	}
 
+	mptcp_debug("%s: sending mp_join syn \n", __func__);
 	mptcp_debug("%s: token %#x pi %d src_addr:%pI4:%d dst_addr:%pI4:%d ifidx: %d\n",
 		    __func__, tcp_sk(meta_sk)->mpcb->mptcp_loc_token,
 		    tp->mptcp->path_index, &loc_in.sin_addr,

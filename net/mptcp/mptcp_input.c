@@ -1408,12 +1408,13 @@ static void mptcp_data_ack(struct sock *sk, const struct sk_buff *skb)
 		return;
 
 	if (unlikely(!tp->mptcp->fully_established) &&
-	    tp->mptcp->snt_isn + 1 != TCP_SKB_CB(skb)->ack_seq)
+	    tp->mptcp->snt_isn + 1 != TCP_SKB_CB(skb)->ack_seq) {
 		/* As soon as a subflow-data-ack (not acking syn, thus snt_isn + 1)
 		 * includes a data-ack, we are fully established
 		 */
+		mptcp_debug("%s: mptcp_become_fully_estab \n", __func__);
 		mptcp_become_fully_estab(sk);
-
+	}
 	/* After we did the subflow-only processing (stopping timer and marking
 	 * subflow as established), check if we can proceed with MPTCP-level
 	 * processing.
@@ -1957,6 +1958,7 @@ skip_hmac_v6:
 	if (mpcb->pm_ops->add_raddr)
 		mpcb->pm_ops->add_raddr(mpcb, &addr, family, port, mpadd->addr_id);
 
+	mptcp_debug("%s: received Add_Address\n", __func__);
 	MPTCP_INC_STATS(sock_net(sk), MPTCP_MIB_ADDADDRRX);
 }
 
@@ -1977,6 +1979,7 @@ static void mptcp_handle_rem_addr(const unsigned char *ptr, struct sock *sk)
 		MPTCP_INC_STATS(sock_net(sk), MPTCP_MIB_REMADDRSUB);
 	}
 
+	mptcp_debug("%s: received Remove_Address\n", __func__);
 	MPTCP_INC_STATS(sock_net(sk), MPTCP_MIB_REMADDRRX);
 }
 
@@ -2038,6 +2041,7 @@ static bool mptcp_mp_fastclose_rcvd(struct sock *sk)
 	if (likely(!mptcp->rx_opt.mp_fclose))
 		return false;
 
+	mptcp_debug("%s: received mp_fastclose\n", __func__);
 	MPTCP_INC_STATS(sock_net(sk), MPTCP_MIB_FASTCLOSERX);
 	mptcp->rx_opt.mp_fclose = 0;
 	if (mptcp->rx_opt.mptcp_sender_key != mpcb->mptcp_loc_key)
@@ -2056,6 +2060,7 @@ static void mptcp_mp_fail_rcvd(struct sock *sk, const struct tcphdr *th)
 	struct sock *meta_sk = mptcp_meta_sk(sk);
 	struct mptcp_cb *mpcb = tcp_sk(sk)->mpcb;
 
+	mptcp_debug("%s: received mp_fail\n", __func__);
 	MPTCP_INC_STATS(sock_net(sk), MPTCP_MIB_MPFAILRX);
 	mptcp->rx_opt.mp_fail = 0;
 
@@ -2252,6 +2257,7 @@ int mptcp_rcv_synsent_state_process(struct sock *sk, struct sock **skptr,
 				4, (u8 *)&tp->mptcp->mptcp_loc_nonce,
 				4, (u8 *)&tp->mptcp->rx_opt.mptcp_recv_nonce);
 
+		mptcp_debug("%s: received join synack \n", __func__);
 		MPTCP_INC_STATS(sock_net(sk), MPTCP_MIB_JOINSYNACKRX);
 	} else if (mopt->saw_mpc) {
 		struct sock *meta_sk = sk;
@@ -2261,6 +2267,7 @@ int mptcp_rcv_synsent_state_process(struct sock *sk, struct sock **skptr,
 			/* TODO Consider adding new MPTCP_INC_STATS entry */
 			goto fallback;
 
+		mptcp_debug("%s: received mp_capa synack \n", __func__);
 		if (mptcp_create_master_sk(sk, mopt->mptcp_sender_key,
 					   mopt->mptcp_ver,
 					   ntohs(tcp_hdr(skb)->window)))
