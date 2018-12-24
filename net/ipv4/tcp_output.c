@@ -1078,6 +1078,7 @@ int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
 	struct tcp_skb_cb *tcb;
 	struct tcp_out_options opts;
 	unsigned int tcp_options_size, tcp_header_size;
+	int extending_len = 0;
 	struct sk_buff *oskb = NULL;
 	struct tcp_md5sig_key *md5;
 	struct tcphdr *th;
@@ -1112,6 +1113,18 @@ int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
 	else
 		tcp_options_size = tcp_established_options(sk, skb, &opts,
 							   &md5);
+	/* Call bpf_program to add the length of new MPTCP option
+	 * need to check if header space is enough for adding option
+	 */
+	if (BPF_SOCK_OPS_TEST_FLAG(tp, BPF_SOCK_OPS_OPTION_WRITE_FLAG)) {
+		extending_len = tcp_call_bpf_2arg(sk, BPF_TCP_OPTIONS_SIZE_CALC,
+							0, tcp_options_size);
+		if ((extending_len > 0) && (tcp_options_size + extending_len <= 40)) {
+			tcp_options_size += extending_len;
+			opts.extending_len = extending_len;
+		}
+	}
+
 	tcp_header_size = tcp_options_size + sizeof(struct tcphdr);
 
 	/* if no packet is in qdisc/device queue, then allow XPS to select
