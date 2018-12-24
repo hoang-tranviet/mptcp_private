@@ -279,7 +279,11 @@ struct mptcp_cb {
 		dfin_combined:1,   /* Was the DFIN combined with subflow-fin? */
 		passive_close:1,
 		snd_hiseq_index:1, /* Index in snd_high_order of snd_nxt */
-		rcv_hiseq_index:1; /* Index in rcv_high_order of rcv_nxt */
+		rcv_hiseq_index:1, /* Index in rcv_high_order of rcv_nxt */
+		backup_sfs_mode:1; /* Joined sfs will not be used until we activate them.
+				      This flag should be set at the beginning of mptcp connection
+				      and will not be changed even after backup sfs are activated */
+
 
 #define MPTCP_SCHED_DATA_SIZE 8
 	u8 mptcp_sched[MPTCP_SCHED_DATA_SIZE] __aligned(8);
@@ -339,6 +343,9 @@ struct mptcp_cb {
 	u32 orig_window_clamp;
 
 	struct tcp_info	*master_info;
+
+	/* if current RTT reach it, other backup sf will become active */
+	u32 rtt_threshold;
 };
 
 #define MPTCP_VERSION_0 0

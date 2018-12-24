@@ -1202,6 +1202,9 @@ enum {
 
 #define TCP_BPF_IW		1001	/* Set TCP initial congestion window */
 #define TCP_BPF_SNDCWND_CLAMP	1002	/* Set sndcwnd_clamp */
+#define MPTCP_BACKUP_SFS_MODE	1020	/* Will set all new subflows as backup */
+#define MPTCP_RTT_THRESHOLD	1010	/* Set RTT threshold on MPTCP connection
+					   for activating backup subflows */
 
 struct bpf_perf_event_value {
 	__u64 counter;
