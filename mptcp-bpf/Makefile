@@ -19,7 +19,8 @@ LDLIBS += -lcap -lelf -lrt -lpthread
 TEST_GEN_PROGS = test_mptcp_user test_mptcp_pm_user
 
 TEST_GEN_FILES = bpf_mptcp_fullmesh.o bpf_mptcp_ndiffports.o \
-		 bpf_mptcp_cap_bw_kern.o
+		 bpf_mptcp_cap_bw_kern.o \
+		 bpf_mptcp_priority_kern.o
 
 # Compile but not part of 'make run_tests'
 TEST_GEN_PROGS_EXTENDED = test_libbpf_open
