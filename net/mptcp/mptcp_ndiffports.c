@@ -61,7 +61,12 @@ next_subflow:
 
 			loc.addr.s_addr = inet_sk(meta_sk)->inet_saddr;
 			loc.loc4_id = 0;
-			loc.low_prio = 0;
+
+			if (mpcb->backup_sfs_mode)
+				loc.low_prio = 1;
+			else
+				loc.low_prio = 0;
+
 			if (mpcb->master_sk)
 				loc.if_idx = mpcb->master_sk->sk_bound_dev_if;
 			else
@@ -79,7 +84,12 @@ next_subflow:
 
 			loc.addr = inet6_sk(meta_sk)->saddr;
 			loc.loc6_id = 0;
-			loc.low_prio = 0;
+
+			if (mpcb->backup_sfs_mode)
+				loc.low_prio = 1;
+			else
+				loc.low_prio = 0;
+
 			if (mpcb->master_sk)
 				loc.if_idx = mpcb->master_sk->sk_bound_dev_if;
 			else
