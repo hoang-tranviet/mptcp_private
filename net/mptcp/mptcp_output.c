@@ -1451,6 +1451,7 @@ static void mptcp_ack_retransmit_timer(struct sock *sk)
 	skb_reserve(skb, MAX_TCP_HEADER);
 	tcp_init_nondata_skb(skb, tp->snd_una, TCPHDR_ACK);
 
+	mptcp_debug("%s: retransmit join ack \n", __func__);
 	MPTCP_INC_STATS(sock_net(sk), MPTCP_MIB_JOINACKRXMIT);
 
 	if (tcp_transmit_skb(sk, skb, 0, GFP_ATOMIC) > 0) {
@@ -1573,6 +1574,7 @@ int mptcp_retransmit_skb(struct sock *meta_sk, struct sk_buff *skb)
 
 	/* Update global TCP statistics. */
 	MPTCP_INC_STATS(sock_net(meta_sk), MPTCP_MIB_RETRANSSEGS);
+        mptcp_debug("%s: mptcp retrans\n", __func__);
 
 	/* Diff to tcp_retransmit_skb */
 
