@@ -1177,6 +1177,7 @@ enum {
 
 	BPF_MPTCP_ADD_SOCK,		/* Called when a new sock is added to
 					 * an MPTCP connection */
+	BPF_MPTCP_NEW_SESSION,		/* Called when a new MPTCP session is created */
 };
 
 /* List of TCP states. There is a build check in net/ipv4/tcp.c to detect
