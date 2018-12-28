@@ -1173,6 +1173,7 @@ enum {
 					 * Arg1: subflow ID
 					 * Arg2: net_dev type
 					 */
+	BPF_MPTCP_NEW_SESSION,		/* Called when a new MPTCP session is created */
 };
 
 /* List of TCP states. There is a build check in net/ipv4/tcp.c to detect
