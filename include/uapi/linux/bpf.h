@@ -1105,6 +1105,11 @@ struct bpf_sock_ops {
 	__u32 sk_txhash;
 	__u64 bytes_received;
 	__u64 bytes_acked;
+	__u32 mptcp_flags;
+	__u32 mptcp_loc_token;
+	__u32 mptcp_rem_token;
+	__u64 mptcp_loc_key;
+	__u64 mptcp_rem_key;
 };
 
 /* Definitions for bpf_sock_ops_cb_flags */
