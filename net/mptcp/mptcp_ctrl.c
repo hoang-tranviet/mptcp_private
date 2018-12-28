@@ -1509,6 +1509,13 @@ void mptcp_del_sock(struct sock *sk)
  */
 void mptcp_update_metasocket(const struct sock *meta_sk)
 {
+	struct tcp_sock *mtp = tcp_sk(meta_sk);
+	int ret = tcp_call_bpf_2arg(meta_sk, BPF_MPTCP_NEW_SESSION,
+					mtp->mptcp_loc_key,
+					mtp->mptcp_loc_token);
+	mptcp_debug("BPF_MPTCP_NEW_SESSION: loc_key: %llx loc_token: %x ret:%d \n",
+		mtp->mptcp_loc_key, mtp->mptcp_loc_token, ret);
+
 	if (tcp_sk(meta_sk)->mpcb->pm_ops->new_session)
 		tcp_sk(meta_sk)->mpcb->pm_ops->new_session(meta_sk);
 }
