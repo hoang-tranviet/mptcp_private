@@ -5388,6 +5388,14 @@ static u32 sock_ops_convert_ctx_access(enum bpf_access_type type,
 			SOCK_OPS_GET_FIELD(BPF_FIELD, OBJ_FIELD, OBJ);	      \
 	} while (0)
 
+#ifdef CONFIG_MPTCP
+	case offsetof(struct bpf_sock_ops, mptcp_loc_key):
+		SOCK_OPS_GET_FIELD(mptcp_loc_key, mptcp_loc_key, struct tcp_sock);
+		break;
+	case offsetof(struct bpf_sock_ops, mptcp_loc_token):
+		SOCK_OPS_GET_FIELD(mptcp_loc_token, mptcp_loc_token, struct tcp_sock);
+		break;
+#endif
 	case offsetof(struct bpf_sock_ops, snd_cwnd):
 		SOCK_OPS_GET_FIELD(snd_cwnd, snd_cwnd, struct tcp_sock);
 		break;
