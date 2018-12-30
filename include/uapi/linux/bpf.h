@@ -1174,6 +1174,7 @@ enum {
 					 * Arg2: net_dev type
 					 */
 	BPF_MPTCP_NEW_SESSION,		/* Called when a new MPTCP session is created */
+	BPF_MPTCP_FULLY_ESTABLISHED,	/* Called when an MPTCP session is fully established */
 };
 
 /* List of TCP states. There is a build check in net/ipv4/tcp.c to detect
