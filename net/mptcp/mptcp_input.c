@@ -48,6 +48,10 @@ static inline void mptcp_become_fully_estab(struct sock *sk)
 {
 	tcp_sk(sk)->mptcp->fully_established = 1;
 
+	tcp_call_bpf_2arg(sk, BPF_MPTCP_FULLY_ESTABLISHED,
+				tcp_sk(sk)->mptcp_loc_token,
+				tcp_sk(sk)->is_master_sk);
+
 	if (is_master_tp(tcp_sk(sk)) &&
 	    tcp_sk(sk)->mpcb->pm_ops->fully_established)
 		tcp_sk(sk)->mpcb->pm_ops->fully_established(mptcp_meta_sk(sk));
