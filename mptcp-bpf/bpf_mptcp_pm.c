@@ -31,6 +31,13 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		bpf_trace_printk(snew, sizeof(snew), skops->mptcp_loc_token);
 		break;
 	}
+	case BPF_MPTCP_FULLY_ESTABLISHED:
+	{
+		char fully[] = "mptcp conn is fully established: token:%x is_master:%d\n";
+		bpf_trace_printk(fully, sizeof(fully),  skops->args[0],
+							skops->args[1]);
+		break;
+	}
 	case BPF_MPTCP_ADD_SOCK:
 	{
 		unsigned int id = skops->args[0];
