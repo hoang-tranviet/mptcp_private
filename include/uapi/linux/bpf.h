@@ -755,6 +755,12 @@ union bpf_attr {
  *     @addr: pointer to struct sockaddr to bind socket to
  *     @addr_len: length of sockaddr structure
  *     Return: 0 on success or negative error code
+ *
+ * int bpf_open_subflow(bpf_sock_ops, saddr, daddr)
+ *     Open an MPTCP subflow.
+ *     @bpf_sock_ops: pointer to bpf_sock_ops_kern struct
+ *     @saddr: pointer to struct sockaddr (source address)
+ *     @daddr: pointer to struct sockaddr (dest address)
  */
 #define __BPF_FUNC_MAPPER(FN)		\
 	FN(unspec),			\
@@ -821,7 +827,8 @@ union bpf_attr {
 	FN(msg_apply_bytes),		\
 	FN(msg_cork_bytes),		\
 	FN(msg_pull_data),		\
-	FN(bind),
+	FN(bind),			\
+	FN(open_subflow),
 
 /* integer value in 'imm' field of BPF_CALL instruction selects which helper
  * function eBPF program intends to call
