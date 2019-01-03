@@ -36,6 +36,7 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		char fully[] = "%x: mptcp conn is fully established, is_master:%d\n";
 		bpf_trace_printk(fully, sizeof(fully),  skops->args[0],
 							skops->args[1]);
+		bpf_open_subflow(skops, NULL, NULL);
 		break;
 	}
 	case BPF_MPTCP_ADD_SOCK:
