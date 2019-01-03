@@ -98,7 +98,8 @@ int main(int argc, char **argv)
 #include <net/if.h>
 	int map_fd;
 	int key = 1;
-	map_fd = bpf_create_map(BPF_MAP_TYPE_ARRAY,
+	map_fd = bpf_create_map_name(BPF_MAP_TYPE_ARRAY,
+				"addresses",
 				sizeof(u32),
 				sizeof(struct sockaddr_in6),
 				100, 0);
