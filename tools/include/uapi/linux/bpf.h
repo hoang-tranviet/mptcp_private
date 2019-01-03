@@ -807,6 +807,7 @@ union bpf_attr {
 	FN(get_socket_uid),		\
 	FN(set_hash),			\
 	FN(setsockopt),			\
+	FN(open_subflow),		\
 	FN(skb_adjust_room),		\
 	FN(redirect_map),		\
 	FN(sk_redirect_map),		\
