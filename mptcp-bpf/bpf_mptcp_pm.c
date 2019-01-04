@@ -2,18 +2,24 @@
 #include <stddef.h>
 #include <string.h>
 #include <linux/bpf.h>
-#include <linux/if_ether.h>
-#include <linux/if_arp.h>
-#include <linux/if_packet.h>
-#include <linux/ip.h>
-#include <linux/types.h>
-#include <linux/socket.h>
-#include <linux/tcp.h>
+//#include <linux/if_ether.h>
+//#include <linux/if_arp.h>
+//#include <linux/if_packet.h>
+//#include <linux/ip.h>
+//#include <linux/types.h>
+//#include <linux/socket.h>
+//#include <linux/tcp.h>
+#include <arpa/inet.h>
 #include "bpf_helpers.h"
 #include "bpf_endian.h"
 #include "test_tcpbpf.h"
 
 int _version SEC("version") = 1;
+
+//BPF_TABLE("extern", u32, u32, addresses, 1);
+
+#define SRC_IP4		0x0A000004U
+
 
 SEC("sockops")
 int bpf_testcb(struct bpf_sock_ops *skops)
@@ -36,7 +42,17 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		char fully[] = "mptcp conn is fully established: token:%x is_master:%d\n";
 		bpf_trace_printk(fully, sizeof(fully),  skops->args[0],
 							skops->args[1]);
-		bpf_open_subflow(skops, NULL, NULL);
+		struct sockaddr_in loc_addr, rem_addr;
+/*
+		inet_pton(AF_INET, "192.168.10.10", &loc_addr.sin_addr);
+		inet_pton(AF_INET, "192.168.10.11", &rem_addr.sin_addr);
+*/
+		loc_addr.sin_addr.s_addr = bpf_htonl(SRC_IP4);
+		rem_addr.sin_addr.s_addr = bpf_htonl(SRC_IP4);
+		loc_addr.sin_family = rem_addr.sin_family = AF_INET;
+		loc_addr.sin_port = rem_addr.sin_port = bpf_htons(0);
+		bpf_open_subflow(skops, (struct sockaddr *)&loc_addr,
+					(struct sockaddr *)&rem_addr);
 		break;
 	}
 	case BPF_MPTCP_ADD_SOCK:
