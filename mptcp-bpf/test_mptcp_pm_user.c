@@ -137,7 +137,7 @@ int main(int argc, char **argv)
 		goto err;
 	}
 
-	//SYSTEM("curl multipath-tcp.org");
+	SYSTEM("curl multipath-tcp.org");
 	//SYSTEM("./my_net.sh");
 	if (debug_flag) {
 		printf("\n");
