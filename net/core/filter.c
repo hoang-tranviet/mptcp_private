@@ -3429,8 +3429,9 @@ static const struct bpf_func_proto bpf_get_socket_uid_proto = {
 	.arg1_type      = ARG_PTR_TO_CTX,
 };
 
-BPF_CALL_3(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
-	   struct sockaddr *, loc_addr, struct sockaddr *, rem_addr)
+BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
+	   struct sockaddr *, loc_addr,  int, addr_len,
+	   struct sockaddr *, rem_addr,  int, daddr_len)
 {
 	struct mptcp_loc4 loc;
 	struct mptcp_rem4 rem;
@@ -3485,7 +3486,9 @@ static const struct bpf_func_proto bpf_open_subflow_proto = {
 	.ret_type	= RET_INTEGER,
 	.arg1_type	= ARG_PTR_TO_CTX,
 	.arg2_type	= ARG_PTR_TO_MEM,
-	.arg3_type	= ARG_PTR_TO_MEM,
+	.arg3_type	= ARG_CONST_SIZE,
+	.arg4_type	= ARG_PTR_TO_MEM,
+	.arg5_type	= ARG_CONST_SIZE,
 };
 
 
