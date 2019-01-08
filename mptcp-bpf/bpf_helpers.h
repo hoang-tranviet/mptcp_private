@@ -65,7 +65,8 @@ static int (*bpf_xdp_adjust_head)(void *ctx, int offset) =
 	(void *) BPF_FUNC_xdp_adjust_head;
 static int (*bpf_xdp_adjust_meta)(void *ctx, int offset) =
 	(void *) BPF_FUNC_xdp_adjust_meta;
-static int (*bpf_open_subflow)(void *ctx, void *saddr, void *daddr) =
+static int (*bpf_open_subflow)(void *ctx, void *saddr, int saddrlen,
+					  void *daddr, int daddrlen) =
 	(void *) BPF_FUNC_open_subflow;
 static int (*bpf_setsockopt)(void *ctx, int level, int optname, void *optval,
 			     int optlen) =
