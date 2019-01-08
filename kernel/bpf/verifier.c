@@ -2220,13 +2220,26 @@ static bool check_args_pair_invalid(enum bpf_arg_type arg_curr,
 		arg_type_is_mem_size(arg_next));
 }
 
-static bool check_arg_pair_ok(const struct bpf_func_proto *fn)
+static bool check_arg_pair_ok(struct bpf_verifier_env *env, const struct bpf_func_proto *fn)
 {
 	/* bpf_xxx(..., buf, len) call will access 'len'
 	 * bytes from memory 'buf'. Both arg types need
 	 * to be paired, so make sure there's no buggy
 	 * helper function specification.
 	 */
+	verbose(env, "arg1_type is mem_size: %d \n \
+		      arg5_type_is_mem_ptr: %d \n \
+		      arg1 - 2 invalid: %d \n \
+		      arg2 - 3 invalid: %d \n \
+		      arg3 - 4 invalid: %d \n \
+		      arg4 - 5 invalid: %d \n",
+		    arg_type_is_mem_size(fn->arg1_type),
+		    arg_type_is_mem_ptr(fn->arg5_type),
+		    check_args_pair_invalid(fn->arg1_type, fn->arg2_type),
+		    check_args_pair_invalid(fn->arg2_type, fn->arg3_type),
+		    check_args_pair_invalid(fn->arg3_type, fn->arg4_type),
+		    check_args_pair_invalid(fn->arg4_type, fn->arg5_type));
+
 	if (arg_type_is_mem_size(fn->arg1_type) ||
 	    arg_type_is_mem_ptr(fn->arg5_type)  ||
 	    check_args_pair_invalid(fn->arg1_type, fn->arg2_type) ||
@@ -2238,10 +2251,11 @@ static bool check_arg_pair_ok(const struct bpf_func_proto *fn)
 	return true;
 }
 
-static int check_func_proto(const struct bpf_func_proto *fn)
+static int check_func_proto(struct bpf_verifier_env *env,
+	       		    const struct bpf_func_proto *fn)
 {
 	return check_raw_mode_ok(fn) &&
-	       check_arg_pair_ok(fn) ? 0 : -EINVAL;
+	       check_arg_pair_ok(env, fn) ? 0 : -EINVAL;
 }
 
 /* Packet data might have moved, any old PTR_TO_PACKET[_META,_END]
@@ -2443,9 +2457,9 @@ static int check_helper_call(struct bpf_verifier_env *env, int func_id, int insn
 	memset(&meta, 0, sizeof(meta));
 	meta.pkt_access = fn->pkt_access;
 
-	err = check_func_proto(fn);
+	err = check_func_proto(env, fn);
 	if (err) {
-		verbose(env, "kernel subsystem misconfigured func %s#%d\n",
+		verbose(env, "check_func_proto: kernel subsystem misconfigured func %s#%d\n",
 			func_id_name(func_id), func_id);
 		return err;
 	}
@@ -5674,7 +5688,7 @@ patch_call_imm:
 		 */
 		if (!fn->func) {
 			verbose(env,
-				"kernel subsystem misconfigured func %s#%d\n",
+				"get_func_proto: kernel subsystem misconfigured func %s#%d\n",
 				func_id_name(insn->imm), insn->imm);
 			return -EFAULT;
 		}
