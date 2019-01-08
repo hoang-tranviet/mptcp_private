@@ -3437,12 +3437,27 @@ BPF_CALL_3(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 	struct sock *meta_sk = bpf_sock->sk;
 	struct tcp_sock *tp = tcp_sk(meta_sk);
 
-	loc.addr.s_addr = inet_sk(meta_sk)->inet_saddr;
-	trace_printk("meta source addr:%pI4 \n",
-			&(loc.addr.s_addr));
-	loc.addr.s_addr = ((struct sockaddr_in *)loc_addr)->sin_addr.s_addr;
-	trace_printk("passed local addr: %pI4 dest: %pI4 \n",
-			&(loc.addr.s_addr), & inet_sk(meta_sk)->inet_daddr);
+	if (!sk_fullsock(meta_sk))
+		return -EINVAL;
+
+	if (!mptcp(tp)) {
+		pr_err("not an MPTCP connection!\n");
+		return -EINVAL;
+	}
+
+	if (!tp->mptcp->fully_established) {
+		pr_err("MPTCP connection is not fully established\n");
+		return -EINVAL;
+	}
+
+	if (inet_sk(meta_sk)->inet_saddr != 0) {
+		loc.addr.s_addr = inet_sk(meta_sk)->inet_saddr;
+		trace_printk("meta source addr:%pI4 \n",  &(loc.addr.s_addr));
+	}
+	if (loc_addr) {
+		loc.addr.s_addr = ((struct sockaddr_in *)loc_addr)->sin_addr.s_addr;
+		trace_printk("passed local addr: %pI4 \n",  &(loc.addr.s_addr));
+	}
 	loc.loc4_id = 0;
 	loc.low_prio = 0;
 	if (tp->mpcb->master_sk)
@@ -3450,7 +3465,14 @@ BPF_CALL_3(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 	else
 		loc.if_idx = 0;
 
-	rem.addr.s_addr = inet_sk(meta_sk)->inet_daddr;
+	if (inet_sk(meta_sk)->inet_daddr != 0) {
+		rem.addr.s_addr = inet_sk(meta_sk)->inet_daddr;
+		trace_printk("meta dest addr: %pI4 \n",  &(rem.addr.s_addr));
+	}
+	if (rem_addr) {
+		rem.addr.s_addr = ((struct sockaddr_in *)rem_addr)->sin_addr.s_addr;
+		trace_printk("passed remote addr: %pI4 \n",  &(rem.addr.s_addr));
+	}
 	rem.port = inet_sk(meta_sk)->inet_dport;
 	rem.rem4_id = 0; /* Default 0 */
 
