@@ -33,14 +33,16 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		char fully[] = "%x: mptcp conn is fully established, is_master:%d\n";
 		bpf_trace_printk(fully, sizeof(fully),  skops->args[0],
 							skops->args[1]);
-		struct sockaddr_in loc_addr, rem_addr;
+
+		struct sockaddr_in loc_addr = { };
+		struct sockaddr_in rem_addr = { };
 
 		loc_addr.sin_addr.s_addr = bpf_htonl(SRC_IP4);
 		rem_addr.sin_addr.s_addr = bpf_htonl(SRC_IP4);
 		loc_addr.sin_family = rem_addr.sin_family = AF_INET;
 		loc_addr.sin_port = rem_addr.sin_port = bpf_htons(0);
-		bpf_open_subflow(skops, (struct sockaddr *)&loc_addr,
-					(struct sockaddr *)&rem_addr);
+		bpf_open_subflow(skops, (struct sockaddr *)&loc_addr, sizeof(loc_addr),
+					(struct sockaddr *)&rem_addr, sizeof(rem_addr));
 		break;
 	}
 	case BPF_MPTCP_ADD_SOCK:
