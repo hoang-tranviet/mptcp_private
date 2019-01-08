@@ -18,7 +18,8 @@ int _version SEC("version") = 1;
 
 //BPF_TABLE("extern", u32, u32, addresses, 1);
 
-#define SRC_IP4		0x0A000004U
+#define SRC_IP4		0xC0A8210AU	// 192.168.33.10
+#define DST_IP4		0x8268E62DU	// 130.104.230.45
 
 
 SEC("sockops")
@@ -49,11 +50,15 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		inet_pton(AF_INET, "192.168.10.11", &rem_addr.sin_addr);
 */
 		loc_addr.sin_addr.s_addr = bpf_htonl(SRC_IP4);
-		rem_addr.sin_addr.s_addr = bpf_htonl(SRC_IP4);
+		rem_addr.sin_addr.s_addr = bpf_htonl(DST_IP4);
 		loc_addr.sin_family = rem_addr.sin_family = AF_INET;
-		loc_addr.sin_port = rem_addr.sin_port = bpf_htons(0);
-		bpf_open_subflow(skops, (struct sockaddr *)&loc_addr, sizeof(loc_addr),
+		loc_addr.sin_port = bpf_htons(0);
+		rem_addr.sin_port = bpf_htons(80);
+		rv = bpf_open_subflow(  skops,
+					(struct sockaddr *)&loc_addr, sizeof(loc_addr),
 					(struct sockaddr *)&rem_addr, sizeof(rem_addr));
+		char opensf[] = "open new subflow: ret: %d\n";
+		bpf_trace_printk(opensf, sizeof(opensf), rv);
 		break;
 	}
 	case BPF_MPTCP_ADD_SOCK:
