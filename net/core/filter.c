@@ -3429,14 +3429,95 @@ static const struct bpf_func_proto bpf_get_socket_uid_proto = {
 	.arg1_type      = ARG_PTR_TO_CTX,
 };
 
+/* similar to struct ndiffports_priv */
+struct bpf_pm_priv {
+	/* Worker struct for subflow establishment */
+	struct work_struct subflow_work;
+	struct mptcp_cb *mpcb;
+	struct mptcp_loc4 loc_addr;
+	struct mptcp_rem4 rem_addr;
+};
+
+/* workqueue handler, to be run in process context */
+static void create_subflow_worker(struct work_struct *work)
+{
+	const struct bpf_pm_priv *pm_priv = container_of(work,
+						     struct bpf_pm_priv,
+						     subflow_work);
+	struct mptcp_cb *mpcb = pm_priv->mpcb;
+	struct sock *meta_sk = mpcb->meta_sk;
+
+	struct mptcp_loc4 loc;
+	struct mptcp_rem4 rem;
+
+	mutex_lock(&mpcb->mpcb_mutex);
+	lock_sock_nested(meta_sk, SINGLE_DEPTH_NESTING);
+
+	if (sock_flag(meta_sk, SOCK_DEAD))
+		goto exit;
+
+	if (mpcb->master_sk &&
+	    !tcp_sk(mpcb->master_sk)->mptcp->fully_established) {
+		pr_err("MPTCP connection is not fully established\n");
+		goto exit;
+	}
+
+	if (inet_sk(meta_sk)->inet_saddr != 0) {
+		loc.addr.s_addr = inet_sk(meta_sk)->inet_saddr;
+		trace_printk("meta source addr:%pI4 \n",  &(loc.addr.s_addr));
+	}
+	/* 
+	if (pm_priv->loc_addr) {
+		loc.addr.s_addr = ((struct sockaddr_in *)loc_addr)->sin_addr.s_addr;
+		trace_printk("passed local addr: %pI4 \n",  &(loc.addr.s_addr));
+	}
+	*/
+	loc.loc4_id = 0;
+	loc.low_prio = 0;
+	if (mpcb->master_sk)
+		loc.if_idx = mpcb->master_sk->sk_bound_dev_if;
+	else {
+		loc.if_idx = 0;
+		trace_printk("no master sk?\n");
+	}
+
+	if (inet_sk(meta_sk)->inet_daddr != 0) {
+		rem.addr.s_addr = inet_sk(meta_sk)->inet_daddr;
+		trace_printk("meta dest addr: %pI4 \n",  &(rem.addr.s_addr));
+	}
+	/*
+	if (pm_priv->rem_addr) {
+		rem.addr.s_addr = ((struct sockaddr_in *)rem_addr)->sin_addr.s_addr;
+		trace_printk("passed remote addr: %pI4 \n",  &(rem.addr.s_addr));
+	}
+	*/
+	rem.port = inet_sk(meta_sk)->inet_dport;
+	rem.rem4_id = 0; // Default
+
+	mptcp_init4_subsockets(meta_sk, &loc, &rem);
+exit:
+	release_sock(meta_sk);
+	mutex_unlock(&mpcb->mpcb_mutex);
+	sock_put(meta_sk);
+
+}
+
+/* normally (or always?) this helper runs in interrupt context,
+ * since it is triggered by BPF program, which is event-based,
+ * in turn is triggered typically when receiving a packet.
+ *
+ * However, the actual job of creating new subflow is
+ * mptcp_init4_subsockets() should be run in process context.
+ * For that, we schedule a workqueue in the same way the
+ * current PMs is doing.
+ */
 BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 	   struct sockaddr *, loc_addr,  int, addr_len,
 	   struct sockaddr *, rem_addr,  int, daddr_len)
 {
-	struct mptcp_loc4 loc;
-	struct mptcp_rem4 rem;
 	struct sock *meta_sk = bpf_sock->sk;
 	struct tcp_sock *tp = tcp_sk(meta_sk);
+	struct bpf_pm_priv *pm_priv = (struct bpf_pm_priv *)&tp->mpcb->mptcp_pm[0];
 
 	if (!sk_fullsock(meta_sk))
 		return -EINVAL;
@@ -3446,38 +3527,20 @@ BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 		return -EINVAL;
 	}
 
-	if (!tp->mptcp->fully_established) {
-		pr_err("MPTCP connection is not fully established\n");
+	/* Initialize workqueue-struct */
+	/* can be moved to an earlier hook, e.g. MPTCP_NEW_SESSION */
+	INIT_WORK(&pm_priv->subflow_work, create_subflow_worker);
+	pm_priv->mpcb = tp->mpcb;
+
+	if (tp->mpcb->infinite_mapping_snd || tp->mpcb->infinite_mapping_rcv ||
+	    tp->mpcb->send_infinite_mapping || sock_flag(meta_sk, SOCK_DEAD))
 		return -EINVAL;
-	}
 
-	if (inet_sk(meta_sk)->inet_saddr != 0) {
-		loc.addr.s_addr = inet_sk(meta_sk)->inet_saddr;
-		trace_printk("meta source addr:%pI4 \n",  &(loc.addr.s_addr));
+	if (!work_pending(&pm_priv->subflow_work)) {
+		sock_hold(meta_sk);
+		queue_work(mptcp_wq, &pm_priv->subflow_work);
 	}
-	if (loc_addr) {
-		loc.addr.s_addr = ((struct sockaddr_in *)loc_addr)->sin_addr.s_addr;
-		trace_printk("passed local addr: %pI4 \n",  &(loc.addr.s_addr));
-	}
-	loc.loc4_id = 0;
-	loc.low_prio = 0;
-	if (tp->mpcb->master_sk)
-		loc.if_idx = tp->mpcb->master_sk->sk_bound_dev_if;
-	else
-		loc.if_idx = 0;
-
-	if (inet_sk(meta_sk)->inet_daddr != 0) {
-		rem.addr.s_addr = inet_sk(meta_sk)->inet_daddr;
-		trace_printk("meta dest addr: %pI4 \n",  &(rem.addr.s_addr));
-	}
-	if (rem_addr) {
-		rem.addr.s_addr = ((struct sockaddr_in *)rem_addr)->sin_addr.s_addr;
-		trace_printk("passed remote addr: %pI4 \n",  &(rem.addr.s_addr));
-	}
-	rem.port = inet_sk(meta_sk)->inet_dport;
-	rem.rem4_id = 0; /* Default 0 */
-
-	return mptcp_init4_subsockets(meta_sk, &loc, &rem);
+	return 0;
 }
 
 static const struct bpf_func_proto bpf_open_subflow_proto = {
