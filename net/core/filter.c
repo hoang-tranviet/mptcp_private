@@ -3429,55 +3429,119 @@ static const struct bpf_func_proto bpf_get_socket_uid_proto = {
 	.arg1_type      = ARG_PTR_TO_CTX,
 };
 
+
+/* normally (or always?) this helper runs in interrupt context,
+ * since it is triggered by BPF program, which is event-based,
+ * in turn is triggered typically when receiving a packet.
+ *
+ * However, the actual job of creating new subflow is
+ * mptcp_init4_subsockets() should be run in process context.
+ * For that, we schedule a workqueue in the same way the
+ * current PMs is doing.
+ */
 BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 	   struct sockaddr *, loc_addr,  int, addr_len,
 	   struct sockaddr *, rem_addr,  int, daddr_len)
 {
+	struct sock *meta_sk;
+	struct tcp_sock *tp;
+	struct bpf_pm_priv *pm_priv;
 	struct mptcp_loc4 loc;
 	struct mptcp_rem4 rem;
-	struct sock *meta_sk = bpf_sock->sk;
-	struct tcp_sock *tp = tcp_sk(meta_sk);
 
-	if (!sk_fullsock(meta_sk))
+	trace_printk("bpf_open_subflow ... \n");
+	if ((!bpf_sock) || (!bpf_sock->sk)) {
+		trace_printk("bpf_open_subflow: sk is empty !!! \n");
 		return -EINVAL;
+	}
+
+	if (is_meta_sk(bpf_sock->sk))
+		trace_printk("bpf_sock attached the meta sk, expect subflow sk!");
+
+	meta_sk = mptcp_meta_sk(bpf_sock->sk);
+	tp = tcp_sk(meta_sk);
+
+	if (!tp->mpcb) {
+		trace_printk("bpf_open_subflow: tp->mpcb is empty !!! \n");
+		return -EINVAL;
+	}
+
+	/*
+	print_hex_dump(KERN_ERR, "mptcp_pm[]: ",  DUMP_PREFIX_OFFSET, 16, 1,
+		tp->mpcb->mptcp_pm, MPTCP_PM_SIZE, true);
+	*/
+	// beware: there may be conflict with in-kernel PMs
+	// do we really need this?
+	pm_priv = (struct bpf_pm_priv *)&tp->mpcb->mptcp_pm[0];
+
+	if (!sk_fullsock(meta_sk)) {
+		trace_printk("sk is not fullsock !!!");
+		return -EINVAL;
+	}
 
 	if (!mptcp(tp)) {
 		pr_err("not an MPTCP connection!\n");
 		return -EINVAL;
 	}
-
-	if (!tp->mptcp->fully_established) {
-		pr_err("MPTCP connection is not fully established\n");
+	if (!pm_priv) {
+		trace_printk("pm_priv is NULL !!!");
 		return -EINVAL;
 	}
 
-	if (inet_sk(meta_sk)->inet_saddr != 0) {
+	if (!mptcp_can_new_subflow(meta_sk) || tp->mpcb->infinite_mapping_snd
+	   || sock_flag(meta_sk, SOCK_DEAD)) {
+		trace_printk("cannot create new sf: %d %d %d %d \t %d %d \n",
+				meta_sk->sk_state == TCP_CLOSE,
+				!tcp_sk(meta_sk)->inside_tk_table,
+				tcp_sk(meta_sk)->mpcb->infinite_mapping_rcv,
+				tcp_sk(meta_sk)->mpcb->send_infinite_mapping,
+				tp->mpcb->infinite_mapping_snd,
+				sock_flag(meta_sk, SOCK_DEAD));
+		return -EINVAL;
+	}
+
+	/* filling local address info */
+	if (loc_addr) {
+		loc.addr = ((struct sockaddr_in *) loc_addr)->sin_addr;
+		trace_printk("passed local addr: %pI4 \n",  &(loc.addr.s_addr));
+	}
+	else if (inet_sk(meta_sk)->inet_saddr != 0) {
 		loc.addr.s_addr = inet_sk(meta_sk)->inet_saddr;
 		trace_printk("meta source addr:%pI4 \n",  &(loc.addr.s_addr));
-	}
-	if (loc_addr) {
-		loc.addr.s_addr = ((struct sockaddr_in *)loc_addr)->sin_addr.s_addr;
-		trace_printk("passed local addr: %pI4 \n",  &(loc.addr.s_addr));
 	}
 	loc.loc4_id = 0;
 	loc.low_prio = 0;
 	if (tp->mpcb->master_sk)
 		loc.if_idx = tp->mpcb->master_sk->sk_bound_dev_if;
-	else
+	else {
 		loc.if_idx = 0;
-
-	if (inet_sk(meta_sk)->inet_daddr != 0) {
-		rem.addr.s_addr = inet_sk(meta_sk)->inet_daddr;
-		trace_printk("meta dest addr: %pI4 \n",  &(rem.addr.s_addr));
+		trace_printk("no master sk?\n");
 	}
+	pm_priv->loc_addr = loc;
+
+	/* filling remote address info */
 	if (rem_addr) {
-		rem.addr.s_addr = ((struct sockaddr_in *)rem_addr)->sin_addr.s_addr;
-		trace_printk("passed remote addr: %pI4 \n",  &(rem.addr.s_addr));
+		rem.addr = ((struct sockaddr_in *) rem_addr)->sin_addr;
+		rem.port = ((struct sockaddr_in *) rem_addr)->sin_port;
+		trace_printk("passed remote addr: %pI4  port: %u \n",
+				&(rem.addr.s_addr), ntohs(rem.port));
 	}
-	rem.port = inet_sk(meta_sk)->inet_dport;
-	rem.rem4_id = 0; /* Default 0 */
+	else if (inet_sk(meta_sk)->inet_daddr != 0) {
+		rem.addr.s_addr = inet_sk(meta_sk)->inet_daddr;
+		rem.port	= inet_sk(meta_sk)->inet_dport;
+		trace_printk("meta dest addr: %pI4  port %u \n",
+				&(rem.addr.s_addr), ntohs(rem.port));
+	}
+	rem.rem4_id = 0; // Default
+	pm_priv->rem_addr = rem;
 
-	return mptcp_init4_subsockets(meta_sk, &loc, &rem);
+	trace_printk("subflow_work: queuing\n");
+	/* queuing the work */
+	if (!work_pending(&pm_priv->subflow_work)) {
+		sock_hold(meta_sk);
+		queue_work(mptcp_wq, &pm_priv->subflow_work);
+	}
+	return 0;
 }
 
 static const struct bpf_func_proto bpf_open_subflow_proto = {
