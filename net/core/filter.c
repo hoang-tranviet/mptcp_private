@@ -3447,8 +3447,8 @@ static void create_subflow_worker(struct work_struct *work)
 	struct mptcp_cb *mpcb = pm_priv->mpcb;
 	struct sock *meta_sk = mpcb->meta_sk;
 
-	struct mptcp_loc4 loc;
-	struct mptcp_rem4 rem;
+	struct mptcp_loc4 loc = pm_priv->loc_addr;
+	struct mptcp_rem4 rem = pm_priv->rem_addr;
 
 	mutex_lock(&mpcb->mpcb_mutex);
 	lock_sock_nested(meta_sk, SINGLE_DEPTH_NESTING);
@@ -3461,38 +3461,6 @@ static void create_subflow_worker(struct work_struct *work)
 		pr_err("MPTCP connection is not fully established\n");
 		goto exit;
 	}
-
-	if (inet_sk(meta_sk)->inet_saddr != 0) {
-		loc.addr.s_addr = inet_sk(meta_sk)->inet_saddr;
-		trace_printk("meta source addr:%pI4 \n",  &(loc.addr.s_addr));
-	}
-	/* 
-	if (pm_priv->loc_addr) {
-		loc.addr.s_addr = ((struct sockaddr_in *)loc_addr)->sin_addr.s_addr;
-		trace_printk("passed local addr: %pI4 \n",  &(loc.addr.s_addr));
-	}
-	*/
-	loc.loc4_id = 0;
-	loc.low_prio = 0;
-	if (mpcb->master_sk)
-		loc.if_idx = mpcb->master_sk->sk_bound_dev_if;
-	else {
-		loc.if_idx = 0;
-		trace_printk("no master sk?\n");
-	}
-
-	if (inet_sk(meta_sk)->inet_daddr != 0) {
-		rem.addr.s_addr = inet_sk(meta_sk)->inet_daddr;
-		trace_printk("meta dest addr: %pI4 \n",  &(rem.addr.s_addr));
-	}
-	/*
-	if (pm_priv->rem_addr) {
-		rem.addr.s_addr = ((struct sockaddr_in *)rem_addr)->sin_addr.s_addr;
-		trace_printk("passed remote addr: %pI4 \n",  &(rem.addr.s_addr));
-	}
-	*/
-	rem.port = inet_sk(meta_sk)->inet_dport;
-	rem.rem4_id = 0; // Default
 
 	mptcp_init4_subsockets(meta_sk, &loc, &rem);
 exit:
@@ -3518,6 +3486,8 @@ BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 	struct sock *meta_sk = bpf_sock->sk;
 	struct tcp_sock *tp = tcp_sk(meta_sk);
 	struct bpf_pm_priv *pm_priv = (struct bpf_pm_priv *)&tp->mpcb->mptcp_pm[0];
+	struct mptcp_loc4 loc;
+	struct mptcp_rem4 rem;
 
 	if (!sk_fullsock(meta_sk))
 		return -EINVAL;
@@ -3536,6 +3506,42 @@ BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 	    tp->mpcb->send_infinite_mapping || sock_flag(meta_sk, SOCK_DEAD))
 		return -EINVAL;
 
+	/* filling local address info */
+	if (loc_addr) {
+		loc.addr = ((struct sockaddr_in *) loc_addr)->sin_addr;
+		trace_printk("passed local addr: %pI4 \n",  &(loc.addr.s_addr));
+	}
+	else if (inet_sk(meta_sk)->inet_saddr != 0) {
+		loc.addr.s_addr = inet_sk(meta_sk)->inet_saddr;
+		trace_printk("meta source addr:%pI4 \n",  &(loc.addr.s_addr));
+	}
+	loc.loc4_id = 0;
+	loc.low_prio = 0;
+	if (tp->mpcb->master_sk)
+		loc.if_idx = tp->mpcb->master_sk->sk_bound_dev_if;
+	else {
+		loc.if_idx = 0;
+		trace_printk("no master sk?\n");
+	}
+	pm_priv->loc_addr = loc;
+
+	/* filling remote address info */
+	if (rem_addr) {
+		rem.addr = ((struct sockaddr_in *) rem_addr)->sin_addr;
+		rem.port = ((struct sockaddr_in *) rem_addr)->sin_port;
+		trace_printk("passed remote addr: %pI4  port: %u \n",
+				&(rem.addr.s_addr), ntohs(rem.port));
+	}
+	else if (inet_sk(meta_sk)->inet_daddr != 0) {
+		rem.addr.s_addr = inet_sk(meta_sk)->inet_daddr;
+		rem.port	= inet_sk(meta_sk)->inet_dport;
+		trace_printk("meta dest addr: %pI4  port %u \n",
+				&(rem.addr.s_addr), ntohs(rem.port));
+	}
+	rem.rem4_id = 0; // Default
+	pm_priv->rem_addr = rem;
+
+	/* queuing the work */
 	if (!work_pending(&pm_priv->subflow_work)) {
 		sock_hold(meta_sk);
 		queue_work(mptcp_wq, &pm_priv->subflow_work);
