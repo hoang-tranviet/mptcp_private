@@ -53,6 +53,19 @@ void read_trace_pipe(void)
 		else printf("system(%s) PASS!\n", CMD);		\
 	} while (0)
 
+static int bpf_find_map(const char *test, struct bpf_object *obj,
+			const char *name)
+{
+	struct bpf_map *map;
+
+	map = bpf_object__find_map_by_name(obj, name);
+	if (!map) {
+		printf("%s:FAIL:map '%s' not found\n", test, name);
+		return -1;
+	}
+	return bpf_map__fd(map);
+}
+
 int main(int argc, char **argv)
 {
 	const char *file;
@@ -93,37 +106,6 @@ int main(int argc, char **argv)
 	SYSTEM(cmd);
 
 
-
-#include <ifaddrs.h>
-#include <net/if.h>
-	int map_fd;
-	int key = 1;
-	map_fd = bpf_create_map_name(BPF_MAP_TYPE_ARRAY,
-				"addresses",
-				sizeof(u32),
-				sizeof(struct sockaddr_in6),
-				100, 0);
-
-	struct ifaddrs  *addrs, *ifa;
-
-	getifaddrs(&addrs);
-	for (ifa = addrs; ifa != NULL; ifa = ifa->ifa_next) {
-		if (ifa->ifa_flags & ((!IFF_UP)|IFF_LOOPBACK))
-			continue;
-		if (ifa->ifa_addr->sa_family != AF_INET)
-			continue;
-		struct sockaddr_in *pAddr = (struct sockaddr_in *)ifa->ifa_addr;
-		printf("%s: %s\n", ifa->ifa_name, inet_ntoa(pAddr->sin_addr));
-		bpf_map_update_elem(map_fd, &key, pAddr, BPF_ANY);
-		bpf_map_lookup_elem(map_fd, &key, pAddr);
-		printf("bpf_map_lookup_elem: %s\n", inet_ntoa(pAddr->sin_addr));
-		key++;
-	}
-	freeifaddrs(addrs);
-
-
-
-
 	cg_fd = open(dir, O_DIRECTORY, O_RDONLY);
 	if (bpf_prog_load(file, BPF_PROG_TYPE_SOCK_OPS, &obj, &prog_fd)) {
 		printf("FAILED: load_bpf_file failed for: %s\n", file);
@@ -136,6 +118,35 @@ int main(int argc, char **argv)
 		       error, strerror(errno));
 		goto err;
 	}
+
+
+#include <ifaddrs.h>
+#include <net/if.h>
+	int map_fd;
+	int key = 1;
+	struct ifaddrs  *addrs, *ifa;
+
+	map_fd = bpf_find_map(__func__, obj, "sockaddr_map");
+	if (map_fd < 0)
+		goto err;
+
+	getifaddrs(&addrs);
+	for (ifa = addrs; ifa != NULL; ifa = ifa->ifa_next) {
+		if (ifa->ifa_flags & ((!IFF_UP)|IFF_LOOPBACK))
+			continue;
+		if (ifa->ifa_addr->sa_family != AF_INET)
+			continue;
+		struct sockaddr_in *pAddr = (struct sockaddr_in *)ifa->ifa_addr;
+		printf("%s: %s\n", ifa->ifa_name, inet_ntoa(pAddr->sin_addr));
+		bpf_map_update_elem(map_fd, &key, pAddr, BPF_ANY);
+		bpf_map_lookup_elem(map_fd, &key, pAddr);
+		printf("bpf_map_lookup_elem: %d: %s\n", key, inet_ntoa(pAddr->sin_addr));
+		key++;
+	}
+	freeifaddrs(addrs);
+
+	printf("map_fd: %d\n", map_fd);
+
 
 	SYSTEM("curl multipath-tcp.org");
 	//SYSTEM("./my_net.sh");
