@@ -3548,10 +3548,10 @@ static const struct bpf_func_proto bpf_open_subflow_proto = {
 	.gpl_only	= false,
 	.ret_type	= RET_INTEGER,
 	.arg1_type	= ARG_PTR_TO_CTX,
-	.arg2_type	= ARG_PTR_TO_MEM,
-	.arg3_type	= ARG_CONST_SIZE,
-	.arg4_type	= ARG_PTR_TO_MEM,
-	.arg5_type	= ARG_CONST_SIZE,
+	.arg2_type	= ARG_PTR_TO_MEM_OR_NULL,
+	.arg3_type	= ARG_CONST_SIZE_OR_ZERO,
+	.arg4_type	= ARG_PTR_TO_MEM_OR_NULL,
+	.arg5_type	= ARG_CONST_SIZE_OR_ZERO,
 };
 
 
