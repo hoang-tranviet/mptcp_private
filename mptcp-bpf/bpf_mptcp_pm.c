@@ -20,6 +20,7 @@ int _version SEC("version") = 1;
 
 #define SRC_IP4		0xC0A8210AU	// 192.168.33.10
 #define DST_IP4		0x8268E62DU	// 130.104.230.45
+#define DST_IP4		0x8268E48CU	// 130.104.228.140
 
 struct bpf_map_def SEC("maps") sockaddr_map = {
 	.type = BPF_MAP_TYPE_ARRAY,
@@ -64,8 +65,18 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 				 bpf_ntohl(local_addr->sin_addr.s_addr));
 
 		rem_addr.sin_addr.s_addr = bpf_htonl(DST_IP4);
+		rem_addr.sin_family = AF_INET;
 		rem_addr.sin_port = bpf_htons(80);
 
+		/* when passing (NULL, 0):
+		 * existing local and remote addresses will be used
+		 * to set up new subflow, useful to set up ndiffports
+		 */
+		// rv = bpf_open_subflow( skops,  NULL, 0,  NULL, 0);
+
+		/* open new subflow on desired local and remote addresses
+		 * set one end as (NULL, 0) if want to use existing address
+		 */
 		rv = bpf_open_subflow( skops,
 				(struct sockaddr *)local_addr, sizeof(struct sockaddr_in),
 				(struct sockaddr *)&rem_addr, sizeof(rem_addr));
