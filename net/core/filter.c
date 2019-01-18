@@ -3429,46 +3429,6 @@ static const struct bpf_func_proto bpf_get_socket_uid_proto = {
 	.arg1_type      = ARG_PTR_TO_CTX,
 };
 
-/* similar to struct ndiffports_priv */
-struct bpf_pm_priv {
-	/* Worker struct for subflow establishment */
-	struct work_struct subflow_work;
-	struct mptcp_cb *mpcb;
-	struct mptcp_loc4 loc_addr;
-	struct mptcp_rem4 rem_addr;
-};
-
-/* workqueue handler, to be run in process context */
-static void create_subflow_worker(struct work_struct *work)
-{
-	const struct bpf_pm_priv *pm_priv = container_of(work,
-						     struct bpf_pm_priv,
-						     subflow_work);
-	struct mptcp_cb *mpcb = pm_priv->mpcb;
-	struct sock *meta_sk = mpcb->meta_sk;
-
-	struct mptcp_loc4 loc = pm_priv->loc_addr;
-	struct mptcp_rem4 rem = pm_priv->rem_addr;
-
-	mutex_lock(&mpcb->mpcb_mutex);
-	lock_sock_nested(meta_sk, SINGLE_DEPTH_NESTING);
-
-	if (sock_flag(meta_sk, SOCK_DEAD))
-		goto exit;
-
-	if (mpcb->master_sk &&
-	    !tcp_sk(mpcb->master_sk)->mptcp->fully_established) {
-		pr_err("MPTCP connection is not fully established\n");
-		goto exit;
-	}
-
-	mptcp_init4_subsockets(meta_sk, &loc, &rem);
-exit:
-	release_sock(meta_sk);
-	mutex_unlock(&mpcb->mpcb_mutex);
-	sock_put(meta_sk);
-
-}
 
 /* normally (or always?) this helper runs in interrupt context,
  * since it is triggered by BPF program, which is event-based,
@@ -3483,28 +3443,62 @@ BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 	   struct sockaddr *, loc_addr,  int, addr_len,
 	   struct sockaddr *, rem_addr,  int, daddr_len)
 {
-	struct sock *meta_sk = bpf_sock->sk;
-	struct tcp_sock *tp = tcp_sk(meta_sk);
-	struct bpf_pm_priv *pm_priv = (struct bpf_pm_priv *)&tp->mpcb->mptcp_pm[0];
+	struct sock *meta_sk;
+	struct tcp_sock *tp;
+	struct bpf_pm_priv *pm_priv;
 	struct mptcp_loc4 loc;
 	struct mptcp_rem4 rem;
 
-	if (!sk_fullsock(meta_sk))
+	trace_printk("bpf_open_subflow ... \n");
+	if ((!bpf_sock) || (!bpf_sock->sk)) {
+		trace_printk("bpf_open_subflow: sk is empty !!! \n");
 		return -EINVAL;
+	}
+
+	if (is_meta_sk(bpf_sock->sk))
+		trace_printk("bpf_sock attached the meta sk, expect subflow sk!");
+
+	meta_sk = mptcp_meta_sk(bpf_sock->sk);
+	tp = tcp_sk(meta_sk);
+
+	if (!tp->mpcb) {
+		trace_printk("bpf_open_subflow: tp->mpcb is empty !!! \n");
+		return -EINVAL;
+	}
+
+	/*
+	print_hex_dump(KERN_ERR, "mptcp_pm[]: ",  DUMP_PREFIX_OFFSET, 16, 1,
+		tp->mpcb->mptcp_pm, MPTCP_PM_SIZE, true);
+	*/
+	// beware: there may be conflict with in-kernel PMs
+	// do we really need this?
+	pm_priv = (struct bpf_pm_priv *)&tp->mpcb->mptcp_pm[0];
+
+	if (!sk_fullsock(meta_sk)) {
+		trace_printk("sk is not fullsock !!!");
+		return -EINVAL;
+	}
 
 	if (!mptcp(tp)) {
 		pr_err("not an MPTCP connection!\n");
 		return -EINVAL;
 	}
-
-	/* Initialize workqueue-struct */
-	/* can be moved to an earlier hook, e.g. MPTCP_NEW_SESSION */
-	INIT_WORK(&pm_priv->subflow_work, create_subflow_worker);
-	pm_priv->mpcb = tp->mpcb;
-
-	if (tp->mpcb->infinite_mapping_snd || tp->mpcb->infinite_mapping_rcv ||
-	    tp->mpcb->send_infinite_mapping || sock_flag(meta_sk, SOCK_DEAD))
+	if (!pm_priv) {
+		trace_printk("pm_priv is NULL !!!");
 		return -EINVAL;
+	}
+
+	if (!mptcp_can_new_subflow(meta_sk) || tp->mpcb->infinite_mapping_snd
+	   || sock_flag(meta_sk, SOCK_DEAD)) {
+		trace_printk("cannot create new sf: %d %d %d %d \t %d %d \n",
+				meta_sk->sk_state == TCP_CLOSE,
+				!tcp_sk(meta_sk)->inside_tk_table,
+				tcp_sk(meta_sk)->mpcb->infinite_mapping_rcv,
+				tcp_sk(meta_sk)->mpcb->send_infinite_mapping,
+				tp->mpcb->infinite_mapping_snd,
+				sock_flag(meta_sk, SOCK_DEAD));
+		return -EINVAL;
+	}
 
 	/* filling local address info */
 	if (loc_addr) {
@@ -3541,6 +3535,7 @@ BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 	rem.rem4_id = 0; // Default
 	pm_priv->rem_addr = rem;
 
+	trace_printk("subflow_work: queuing\n");
 	/* queuing the work */
 	if (!work_pending(&pm_priv->subflow_work)) {
 		sock_hold(meta_sk);

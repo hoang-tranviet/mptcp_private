@@ -72,7 +72,7 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		 * existing local and remote addresses will be used
 		 * to set up new subflow, useful to set up ndiffports
 		 */
-		// rv = bpf_open_subflow( skops,  NULL, 0,  NULL, 0);
+		rv = bpf_open_subflow( skops,  NULL, 0,  NULL, 0);
 
 		/* open new subflow on desired local and remote addresses
 		 * set one end as (NULL, 0) if want to use existing address
