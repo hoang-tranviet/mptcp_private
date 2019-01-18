@@ -1103,6 +1103,65 @@ static const struct tcp_sock_ops mptcp_sub_specific = {
 	.cleanup_rbuf			= tcp_cleanup_rbuf,
 };
 
+/* workqueue handler, to be run in process context */
+static void bpf_create_subflow_worker(struct work_struct *work)
+{
+	const struct bpf_pm_priv *pm_priv = container_of(work,
+						     struct bpf_pm_priv,
+						     subflow_work);
+	struct mptcp_cb *mpcb;
+	struct sock *meta_sk;
+	struct mptcp_loc4 loc;
+	struct mptcp_rem4 rem;
+
+	trace_printk("handler called \n");
+	if (!pm_priv) {
+		trace_printk("pm_priv is NULL !!!");
+		return;
+	}
+	if(!pm_priv->mpcb) {
+		trace_printk("mpcb is NULL !!!");
+		return;
+	}
+	mpcb = pm_priv->mpcb;
+	if(!mpcb->meta_sk) {
+		trace_printk("meta_sk is NULL !!!");
+		return;
+	}
+	meta_sk = mpcb->meta_sk;
+
+	mutex_lock(&mpcb->mpcb_mutex);
+	lock_sock_nested(meta_sk, SINGLE_DEPTH_NESTING);
+
+	if (mpcb->master_sk &&
+	    !tcp_sk(mpcb->master_sk)->mptcp->fully_established) {
+		pr_err("MPTCP connection is not fully established\n");
+		goto exit;
+	}
+
+	if (!mptcp_can_new_subflow(meta_sk) || mpcb->infinite_mapping_snd
+	   || sock_flag(meta_sk, SOCK_DEAD)) {
+		trace_printk("worker: cannot create new sf: %d %d %d %d \t %d %d \n",
+				meta_sk->sk_state == TCP_CLOSE,
+				!tcp_sk(meta_sk)->inside_tk_table,
+				mpcb->infinite_mapping_rcv,
+				mpcb->send_infinite_mapping,
+				mpcb->infinite_mapping_snd,
+				sock_flag(meta_sk, SOCK_DEAD));
+		goto exit;
+	}
+
+	loc = pm_priv->loc_addr;
+	rem = pm_priv->rem_addr;
+
+	mptcp_init4_subsockets(meta_sk, &loc, &rem);
+exit:
+	release_sock(meta_sk);
+	mutex_unlock(&mpcb->mpcb_mutex);
+	sock_put(meta_sk);
+	trace_printk("init subsockets done, sock released \n");
+}
+
 static int mptcp_alloc_mpcb(struct sock *meta_sk, __u64 remote_key,
 			    __u8 mptcp_ver, u32 window)
 {
@@ -1110,6 +1169,7 @@ static int mptcp_alloc_mpcb(struct sock *meta_sk, __u64 remote_key,
 	struct sock *master_sk;
 	struct inet_connection_sock *meta_icsk = inet_csk(meta_sk);
 	struct tcp_sock *master_tp, *meta_tp = tcp_sk(meta_sk);
+	struct bpf_pm_priv *pm_priv;
 	u64 idsn;
 
 	dst_release(meta_sk->sk_rx_dst);
@@ -1305,6 +1365,18 @@ static int mptcp_alloc_mpcb(struct sock *meta_sk, __u64 remote_key,
 
 	mptcp_init_path_manager(mpcb);
 	mptcp_init_scheduler(mpcb);
+
+	/* Initialize workqueue-struct */
+	/* can be moved to MPTCP_NEW_SESSION */
+	//print_hex_dump(KERN_ERR, "mptcp_pm[]: ",  DUMP_PREFIX_OFFSET, 16, 1,
+	//	tp->mpcb->mptcp_pm, MPTCP_PM_SIZE, true);
+	// beware: there may be conflict with in-kernel PMs
+	// do we really need this?
+	pm_priv = (struct bpf_pm_priv *)&mpcb->mptcp_pm[0];
+	INIT_WORK(&pm_priv->subflow_work, bpf_create_subflow_worker);
+	pm_priv->mpcb = mpcb;
+	trace_printk("subflow_work init\n");
+
 
 	if (!try_module_get(inet_csk(master_sk)->icsk_ca_ops->owner))
 		tcp_assign_congestion_control(master_sk);
