@@ -237,6 +237,15 @@ struct mptcp_pm_ops {
 	struct module	*owner;
 };
 
+/* for bpf path manager, similar to struct ndiffports_priv */
+struct bpf_pm_priv {
+	/* Worker struct for subflow establishment */
+	struct work_struct subflow_work;
+	struct mptcp_cb *mpcb;
+	struct mptcp_loc4 loc_addr;
+	struct mptcp_rem4 rem_addr;
+};
+
 #define MPTCP_SCHED_NAME_MAX 16
 struct mptcp_sched_ops {
 	struct list_head list;
