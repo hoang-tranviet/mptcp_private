@@ -2003,6 +2003,12 @@ skip_hmac_v6:
 		return;
 	}
 
+	/* handle IPv4 only, IPv6 does not fit the argument size (32bit)
+	 * one workaround is to store it in the struct bpf_sock_ops */
+	if (mpadd->ipver == 4)
+		tcp_call_bpf_3arg(sk, BPF_MPTCP_ADD_RADDR,
+				  addr.in.s_addr, port, mpadd->addr_id);
+
 	if (mpcb->pm_ops->add_raddr)
 		mpcb->pm_ops->add_raddr(mpcb, &addr, family, port, mpadd->addr_id);
 
