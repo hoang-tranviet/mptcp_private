@@ -1186,6 +1186,11 @@ enum {
 					 * an MPTCP connection */
 	BPF_MPTCP_NEW_SESSION,		/* Called when a new MPTCP session is created */
 	BPF_MPTCP_FULLY_ESTABLISHED,	/* Called when an MPTCP session is fully established */
+	BPF_MPTCP_ADD_RADDR,		/* Called when receiving an ADD_ADDR
+					 * Arg1: IPv4 ADDR
+					 * Arg2: port (optional)
+					 * Arg3: address ID
+					 */
 };
 
 /* List of TCP states. There is a build check in net/ipv4/tcp.c to detect
