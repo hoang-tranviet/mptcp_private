@@ -42,6 +42,9 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		char fully[] = "%x: mptcp conn is fully established, is_master:%d\n";
 		bpf_trace_printk(fully, sizeof(fully),  skops->args[0],
 							skops->args[1]);
+		// this is not master sk, then skip it
+		if (!skops->args[1])
+			break;
 
 		struct sockaddr_in *local_addr;
 		struct sockaddr_in rem_addr = { };
