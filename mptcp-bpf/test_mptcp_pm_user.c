@@ -148,7 +148,8 @@ int main(int argc, char **argv)
 	printf("map_fd: %d\n", map_fd);
 
 
-	SYSTEM("curl multipath-tcp.org");
+	SYSTEM("curl --limit-rate 20K  -o /dev/null \
+		multipath-tcp.org/data/uml/vmlinux_64");
 	//SYSTEM("./my_net.sh");
 	if (debug_flag) {
 		printf("\n");
