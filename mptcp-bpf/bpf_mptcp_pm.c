@@ -20,6 +20,20 @@ struct bpf_map_def SEC("maps") sockaddr_map = {
 	.max_entries = 100,
 };
 
+struct add_addrs {
+	__u32 ip1;
+	__u32 ip2;
+	__u32 ip3;
+	__u32 ip4;
+};
+
+struct bpf_map_def SEC("maps") add_addr_map = {
+	/* BPF_MAP_TYPE_ARRAY doesn't work, don't know why */
+	.type = BPF_MAP_TYPE_HASH,
+	.key_size   = sizeof(__u32),
+	.value_size = sizeof(struct add_addrs),
+	.max_entries = 100,
+};
 
 SEC("sockops")
 int bpf_testcb(struct bpf_sock_ops *skops)
@@ -27,14 +41,28 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 	int rv = -1;
 	int op;
 	int v = 0;
+	char ret[] = "ret: %d\n";
 
 	op = (int) skops->op;
 
 	switch (op) {
 	case BPF_MPTCP_NEW_SESSION:
 	{
+		__u32 token = skops->mptcp_loc_token;
+
 		char snew[] = "%x: new mptcp connection\n";
-		bpf_trace_printk(snew, sizeof(snew), skops->mptcp_loc_token);
+		bpf_trace_printk(snew, sizeof(snew), token);
+
+		struct add_addrs addrs = {
+			.ip1 = 0,
+			.ip2 = 0,
+			.ip3 = 0,
+			.ip4 = 0,
+		};
+		//memset(&addrs, 0, sizeof(struct add_addrs));
+		rv = bpf_map_update_elem(&add_addr_map, &token, &addrs, BPF_ANY);
+
+		bpf_trace_printk(ret, sizeof(ret),  rv);
 		break;
 	}
 	case BPF_MPTCP_FULLY_ESTABLISHED:
@@ -47,7 +75,6 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 			break;
 
 		struct sockaddr_in *local_addr;
-		struct sockaddr_in rem_addr = { };
 
 		int key = 3;
 		local_addr = bpf_map_lookup_elem(&sockaddr_map, &key);
@@ -59,22 +86,27 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 				 bpf_ntohs(local_addr->sin_port),
 				 bpf_ntohl(local_addr->sin_addr.s_addr));
 
+		/* when passing (NULL, 0):
+		 * existing local and remote addresses will be used
+		 * to set up new subflow, useful to set up ndiffports
+		rv = bpf_open_subflow( skops,  NULL, 0,  NULL, 0);
+		 */
+
+		/* open new subflow on desired local and remote addresses
+		 * set one end as (NULL, 0) if want to use existing address
+
+		struct sockaddr_in rem_addr = { };
 		rem_addr.sin_addr.s_addr = bpf_htonl(DST_IP4);
 		rem_addr.sin_family = AF_INET;
 		rem_addr.sin_port = bpf_htons(80);
 
-		/* when passing (NULL, 0):
-		 * existing local and remote addresses will be used
-		 * to set up new subflow, useful to set up ndiffports
-		 */
-		rv = bpf_open_subflow( skops,  NULL, 0,  NULL, 0);
-
-		/* open new subflow on desired local and remote addresses
-		 * set one end as (NULL, 0) if want to use existing address
-		 */
 		rv = bpf_open_subflow( skops,
 				(struct sockaddr *)local_addr, sizeof(struct sockaddr_in),
 				(struct sockaddr *)&rem_addr, sizeof(rem_addr));
+		 */
+		rv = bpf_open_subflow( skops,
+				(struct sockaddr *)local_addr, sizeof(struct sockaddr_in),
+				NULL, 0);
 		char opensf[] = "open new subflow: ret: %d\n";
 		bpf_trace_printk(opensf, sizeof(opensf), rv);
 		break;
@@ -84,6 +116,60 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		unsigned int id = skops->args[0];
 		char fmt1[] = "%x: SYN-ACK arrived: subflow id: %u \n";
 		bpf_trace_printk(fmt1, sizeof(fmt1), skops->mptcp_loc_token, id);
+		break;
+	}
+	case BPF_MPTCP_ADD_RADDR:
+	{
+		char tok[] = "conn token: %x \n";
+		bpf_trace_printk(tok, sizeof(tok), skops->mptcp_loc_token);
+
+		char add[] = "new addaddr: %x port %d id %d\n";
+		bpf_trace_printk(add, sizeof(add), skops->args[0],
+				   skops->args[1], skops->args[2]);
+
+		__u32 ip = skops->args[0];
+		__u32 key = skops->mptcp_loc_token;
+
+		/* open subflows towards new remote address */
+		struct sockaddr_in rem_addr = {
+			.sin_addr.s_addr = ip,
+			.sin_family = AF_INET,
+			.sin_port = bpf_htons(80),
+		};
+		rv = bpf_open_subflow( skops,
+				NULL, 0,
+				(struct sockaddr *)&rem_addr, sizeof(rem_addr));
+		char opensf[] = "open new subflow: ret: %d\n";
+		bpf_trace_printk(opensf, sizeof(opensf), rv);
+
+		/* add to current add_addrs list */
+		struct add_addrs *addrs = bpf_map_lookup_elem(&add_addr_map, &key);
+
+		if (!addrs) {
+			char emp[] = "add_addr list not found\n";
+			bpf_trace_printk(emp, sizeof(emp));
+			break;
+		}
+
+		/* if received IP already in the list, skip it */
+		if (addrs->ip1 == ip || addrs->ip2 == ip
+		 || addrs->ip3 == ip || addrs->ip4 == ip) {
+			char inlist[] = "IP already in the list, skip it";
+			bpf_trace_printk(inlist, sizeof(inlist));
+			break;
+		}
+		else if (addrs->ip1 == 0)
+			addrs->ip1 = ip;
+		else if (addrs->ip2 == 0)
+			addrs->ip2 = ip;
+		else if (addrs->ip3 == 0)
+			addrs->ip3 = ip;
+		else if (addrs->ip4 == 0)
+			addrs->ip4 = ip;
+		else {
+			char full[] = "add_addr list is full!";
+			bpf_trace_printk(full, sizeof(full));}
+
 		break;
 	}
 	default:

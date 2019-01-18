@@ -148,9 +148,9 @@ int main(int argc, char **argv)
 	printf("map_fd: %d\n", map_fd);
 
 
-	SYSTEM("curl --limit-rate 20K  -o /dev/null \
+	//SYSTEM("curl --limit-rate 20K  -o /dev/null \
 		multipath-tcp.org/data/uml/vmlinux_64");
-	//SYSTEM("./my_net.sh");
+	SYSTEM("./my_net.sh");
 	if (debug_flag) {
 		printf("\n");
 		read_trace_pipe();
