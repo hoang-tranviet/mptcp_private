@@ -52,6 +52,9 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 	int v = 0;
 	char ret[] = "ret: %d\n";
 
+	if (skops->local_port == 80)
+		return 0;
+
 	op = (int) skops->op;
 
 	switch (op) {
