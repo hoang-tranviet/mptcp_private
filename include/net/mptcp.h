@@ -922,6 +922,8 @@ struct sock *get_available_subflow(struct sock *meta_sk, struct sk_buff *skb,
 				   bool zero_wnd_test);
 extern struct mptcp_sched_ops mptcp_sched_default;
 
+static inline int is_meta_sk(const struct sock *sk);
+
 /* Initializes function-pointers and MPTCP-flags */
 static inline void mptcp_init_tcp_sock(struct sock *sk)
 {
@@ -998,6 +1000,13 @@ static inline void mptcp_sub_force_close_all(struct mptcp_cb *mpcb,
 		if (sk_it != except)
 			mptcp_send_reset(sk_it);
 	}
+	if (except)
+		tcp_call_bpf(tcp_sk(except)->meta_sk,
+			     BPF_MPTCP_CLOSE_SESSION,
+			     0, NULL);
+	else
+		/* this happens because of mptcp_mp_fastclose_rcvd() */
+		trace_printk("fallback: NULL sk !\n");
 }
 
 static inline bool mptcp_is_data_seq(const struct sk_buff *skb)
