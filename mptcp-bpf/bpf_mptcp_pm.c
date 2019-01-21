@@ -88,7 +88,7 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 
 		struct sockaddr_in *local_addr;
 
-		int key = 2;
+		int key = 3;
 		local_addr = bpf_map_lookup_elem(&sockaddr_map, &key);
 		if (!local_addr)
 			// without this check, verifier will reject
