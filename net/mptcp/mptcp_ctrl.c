@@ -1913,6 +1913,8 @@ adjudge_to_death:
 		write_unlock_bh(&sk_it->sk_callback_lock);
 	}
 
+	tcp_call_bpf(meta_sk, BPF_MPTCP_CLOSE_SESSION, 0, NULL);
+
 	/* It is the last release_sock in its life. It will remove backlog. */
 	release_sock(meta_sk);
 
