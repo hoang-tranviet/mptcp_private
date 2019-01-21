@@ -3503,7 +3503,7 @@ BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 	/* filling local address info */
 	if (loc_addr) {
 		loc.addr = ((struct sockaddr_in *) loc_addr)->sin_addr;
-		trace_printk("passed local addr: %pI4 \n",  &(loc.addr.s_addr));
+		trace_printk("passed local addr: %pISpc \n", loc_addr);
 	}
 	else if (inet_sk(meta_sk)->inet_saddr != 0) {
 		loc.addr.s_addr = inet_sk(meta_sk)->inet_saddr;
@@ -3523,14 +3523,14 @@ BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 	if (rem_addr) {
 		rem.addr = ((struct sockaddr_in *) rem_addr)->sin_addr;
 		rem.port = ((struct sockaddr_in *) rem_addr)->sin_port;
-		trace_printk("passed remote addr: %pI4  port: %u \n",
-				&(rem.addr.s_addr), ntohs(rem.port));
+		/* generic printk: shows both IPv4/v6 and port */
+		trace_printk("passed remote addr: %pISpc \n", rem_addr);
 	}
 	else if (inet_sk(meta_sk)->inet_daddr != 0) {
 		rem.addr.s_addr = inet_sk(meta_sk)->inet_daddr;
 		rem.port	= inet_sk(meta_sk)->inet_dport;
-		trace_printk("meta dest addr: %pI4  port %u \n",
-				&(rem.addr.s_addr), ntohs(rem.port));
+		trace_printk("meta dest addr: %pI4  port %d %u %d \n",
+				&(rem.addr.s_addr), ntohs(rem.port), ntohs(rem.port),rem.port);
 	}
 	rem.rem4_id = 0; // Default
 	pm_priv->rem_addr = rem;
