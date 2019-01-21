@@ -175,6 +175,19 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 
 		break;
 	}
+	case BPF_MPTCP_CLOSE_SESSION:
+	{
+		__u32 token = skops->mptcp_loc_token;
+		struct add_addrs *addrs = bpf_map_lookup_elem(&add_addr_map, &token);
+
+		char close[] = "close mptcp connection: token:%x %x, removing add_addrs list\n";
+		bpf_trace_printk(close, sizeof(close), skops->args[0], skops->mptcp_loc_token);
+
+		rv = bpf_map_delete_elem(&add_addr_map, &token);
+
+		bpf_trace_printk(ret, sizeof(ret),  rv);
+		break;
+	}
 	default:
 		rv = -1;
 	}
