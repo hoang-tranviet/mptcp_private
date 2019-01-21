@@ -1194,6 +1194,9 @@ enum {
 					 * Arg2: port (optional)
 					 * Arg3: address ID
 					 */
+	BPF_MPTCP_CLOSE_SESSION,	/* Called when an MPTCP session is closed
+					 * or being fallback to TCP
+					 */
 };
 
 /* List of TCP states. There is a build check in net/ipv4/tcp.c to detect
