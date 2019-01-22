@@ -21,6 +21,12 @@ struct bpf_map_def SEC("maps") sockaddr_map = {
 };
 
 struct add_addrs {
+	/* remote address IDs per connection... */
+	__u32 id1;
+	__u32 id2;
+	__u32 id3;
+	__u32 id4;
+	/* ... and their corresponding IP addresses */
 	__u32 ip1;
 	__u32 ip2;
 	__u32 ip3;
@@ -56,13 +62,10 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		char snew[] = "%x: new mptcp connection\n";
 		bpf_trace_printk(snew, sizeof(snew), token);
 
-		struct add_addrs addrs = {
-			.ip1 = 0,
-			.ip2 = 0,
-			.ip3 = 0,
-			.ip4 = 0,
-		};
-		//memset(&addrs, 0, sizeof(struct add_addrs));
+		struct add_addrs addrs;
+		/* Zero initialize the list */
+		memset(&addrs, 0, sizeof(struct add_addrs));
+
 		rv = bpf_map_update_elem(&add_addr_map, &token, &addrs, BPF_ANY);
 
 		bpf_trace_printk(ret, sizeof(ret),  rv);
@@ -131,6 +134,7 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 				   skops->args[1], skops->args[2]);
 
 		__u32 ip = skops->args[0];
+		__u32 id = skops->args[2];
 		__u32 key = skops->mptcp_loc_token;
 
 		/* open subflows towards new remote address */
@@ -161,20 +165,60 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 			bpf_trace_printk(inlist, sizeof(inlist));
 			break;
 		}
-		else if (addrs->ip1 == 0)
+		else if (addrs->ip1 == 0) {
+			addrs->id1 = id;
 			addrs->ip1 = ip;
-		else if (addrs->ip2 == 0)
+		}
+		else if (addrs->ip2 == 0) {
+			addrs->id2 = id;
 			addrs->ip2 = ip;
-		else if (addrs->ip3 == 0)
+		}
+		else if (addrs->ip3 == 0) {
+			addrs->id3 = id;
 			addrs->ip3 = ip;
-		else if (addrs->ip4 == 0)
+		}
+		else if (addrs->ip4 == 0) {
+			addrs->id4 = id;
 			addrs->ip4 = ip;
+		}
 		else {
 			char full[] = "add_addr list is full!";
 			bpf_trace_printk(full, sizeof(full));}
 
 		break;
 	}
+	case BPF_MPTCP_REM_RADDR:
+	{
+		__u32 id = skops->args[1];
+		__u32 token = skops->mptcp_loc_token;
+
+		char rem[] = "%x: remove raddr id: %d\n";
+		bpf_trace_printk(rem, sizeof(rem), token, id);
+
+		struct add_addrs *addrs = bpf_map_lookup_elem(&add_addr_map, &token);
+
+		if (!addrs)
+			break;
+
+		char addrlist[] = " \t raddr list: %pr\n";
+		bpf_trace_printk(addrlist, sizeof(addrlist), addrs);
+
+		/* remove addr from list,
+		 * not 'else' here since id = 0 is both a valid value and the emptiness */
+		if (addrs->id1 == id)
+			addrs->id1 = addrs->ip1 = 0;
+		if (addrs->id2 == id)
+			addrs->id2 = addrs->ip2 = 0;
+		if (addrs->id3 == id)
+			addrs->id3 = addrs->ip3 = 0;
+		if (addrs->id4 == id)
+			addrs->id4 = addrs->ip4 = 0;
+
+
+		bpf_trace_printk(addrlist, sizeof(addrlist), addrs);
+		break;
+	}
+
 	case BPF_MPTCP_CLOSE_SESSION:
 	{
 		__u32 token = skops->mptcp_loc_token;
