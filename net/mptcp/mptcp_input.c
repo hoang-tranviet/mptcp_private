@@ -2026,6 +2026,8 @@ static void mptcp_handle_rem_addr(const unsigned char *ptr, struct sock *sk)
 	for (i = 0; i <= mprem->len - MPTCP_SUB_LEN_REMOVE_ADDR; i++) {
 		rem_id = (&mprem->addrs_id)[i];
 
+		tcp_call_bpf_2arg(sk, BPF_MPTCP_REM_RADDR, 0, rem_id);
+
 		if (mpcb->pm_ops->rem_raddr)
 			mpcb->pm_ops->rem_raddr(mpcb, rem_id);
 		mptcp_send_reset_rem_id(mpcb, rem_id);
