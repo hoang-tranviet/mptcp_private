@@ -1194,6 +1194,10 @@ enum {
 					 * Arg2: port (optional)
 					 * Arg3: address ID
 					 */
+	BPF_MPTCP_REM_RADDR,		/* Called when receiving an REM_ADDR
+					 * Arg1: Zero
+					 * Arg2: address ID
+					 */
 	BPF_MPTCP_CLOSE_SESSION,	/* Called when an MPTCP session is closed
 					 * or being fallback to TCP
 					 */
