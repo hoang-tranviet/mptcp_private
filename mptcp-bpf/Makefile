@@ -18,9 +18,8 @@ LDLIBS += -lcap -lelf -lrt -lpthread
 # Order correspond to 'make run_tests' order
 TEST_GEN_PROGS = test_mptcp_user test_mptcp_pm_user
 
-TEST_GEN_FILES = bpf_mptcp_pm.o
+TEST_GEN_FILES = bpf_mptcp_fullmesh.o
 
->>>>>>> 54f42c6bca03... pm prog: add fist bpf-pm program
 # Compile but not part of 'make run_tests'
 TEST_GEN_PROGS_EXTENDED = test_libbpf_open
 
