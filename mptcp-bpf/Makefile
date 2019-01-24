@@ -20,6 +20,7 @@ TEST_GEN_PROGS = test_mptcp_user
 
 TEST_GEN_FILES = bpf_mptcp_option_kern.o bpf_mptcp_cap_bw_kern.o \
 		 bpf_mptcp_priority_kern.o bpf_mptcp_reinject_data_acks_kern.o \
+		 bpf_mptcp_pm.o
 
 # Compile but not part of 'make run_tests'
 TEST_GEN_PROGS_EXTENDED = test_libbpf_open
