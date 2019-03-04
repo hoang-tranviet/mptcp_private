@@ -3500,6 +3500,11 @@ BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 		return -EINVAL;
 	}
 
+	if (work_pending(&pm_priv->subflow_work)) {
+		trace_printk("previous work is pending, flush it...");
+		flush_workqueue(mptcp_wq);
+	}
+
 	/* filling local address info */
 	if (loc_addr) {
 		loc.addr = ((struct sockaddr_in *) loc_addr)->sin_addr;
@@ -3541,6 +3546,8 @@ BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 		sock_hold(meta_sk);
 		queue_work(mptcp_wq, &pm_priv->subflow_work);
 	}
+	else
+		trace_printk("previous work is still pending! wtf??");
 	return 0;
 }
 
