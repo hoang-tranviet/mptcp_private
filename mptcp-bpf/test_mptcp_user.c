@@ -54,7 +54,7 @@ void read_trace_pipe(void)
 
 int main(int argc, char **argv)
 {
-	const char *file;
+	const char *file, *script;
 	int cg_fd, prog_fd;
 	bool debug_flag = true;
 	int error = EXIT_FAILURE;
@@ -64,15 +64,16 @@ int main(int argc, char **argv)
 	int pid;
 	int rv;
 
-	if (argc > 1)
+	if (argc > 2) {
 		file = argv[1];
-	else {
-		printf("Please specify the bpf program object.\n"
-			" e.g.: ./test_mptcp_user  bpf_mptcp_reinject_data_acks_kern.o \n");
+		script = argv[2];
+	} else {
+		printf("Please specify the bpf program object and script.\n"
+			" e.g.: ./test_mptcp_user  bpf_mptcp_ndiffports.o ./curl-multipath-tcp.org \n");
 		exit(1);
 	}
 
-	if (argc > 2  &&  strncmp(argv[2], "q", 1)) {
+	if (argc > 3  &&  strncmp(argv[3], "-q", 2)) {
 		printf("Quiet mode\n");
 		debug_flag = false;
 	}
@@ -105,7 +106,8 @@ int main(int argc, char **argv)
 	}
 
 	//SYSTEM("curl multipath-tcp.org");
-	SYSTEM("./my_net.sh");
+	//SYSTEM("./my_net.sh");
+	SYSTEM(script);
 	if (debug_flag) {
 		printf("\n");
 		read_trace_pipe();
