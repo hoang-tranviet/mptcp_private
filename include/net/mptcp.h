@@ -244,6 +244,7 @@ struct bpf_pm_priv {
 	struct mptcp_cb *mpcb;
 	struct mptcp_loc4 loc_addr;
 	struct mptcp_rem4 rem_addr;
+	struct list_head list;
 };
 
 #define MPTCP_SCHED_NAME_MAX 16
@@ -333,6 +334,7 @@ struct mptcp_cb {
 
 #define MPTCP_PM_SIZE 608
 	u8 mptcp_pm[MPTCP_PM_SIZE] __aligned(8);
+	struct list_head     pm_work_list;
 	struct mptcp_pm_ops *pm_ops;
 
 	unsigned long path_index_bits;

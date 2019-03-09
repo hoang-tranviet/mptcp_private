@@ -3430,6 +3430,70 @@ static const struct bpf_func_proto bpf_get_socket_uid_proto = {
 };
 
 
+/* workqueue handler, to be run in process context */
+static void bpf_create_subflow_worker(struct work_struct *work)
+{
+	struct bpf_pm_priv *pm_priv = container_of(work,
+						     struct bpf_pm_priv,
+						     subflow_work);
+	struct mptcp_cb *mpcb;
+	struct sock *meta_sk;
+	struct mptcp_loc4 loc;
+	struct mptcp_rem4 rem;
+
+	trace_printk("handler called \n");
+	if (!pm_priv) {
+		trace_printk("pm_priv is NULL !!!");
+		return;
+	}
+	list_del(&pm_priv->list);
+	if(!pm_priv->mpcb) {
+		trace_printk("mpcb is NULL !!!");
+		kfree(pm_priv);
+		return;
+	}
+	mpcb = pm_priv->mpcb;
+	if(!mpcb->meta_sk) {
+		trace_printk("meta_sk is NULL !!!");
+		kfree(pm_priv);
+		return;
+	}
+	meta_sk = mpcb->meta_sk;
+
+	mutex_lock(&mpcb->mpcb_mutex);
+	lock_sock_nested(meta_sk, SINGLE_DEPTH_NESTING);
+
+	if (mpcb->master_sk &&
+	    !tcp_sk(mpcb->master_sk)->mptcp->fully_established) {
+		pr_err("MPTCP connection is not fully established\n");
+		goto exit;
+	}
+
+	if (!mptcp_can_new_subflow(meta_sk) || mpcb->infinite_mapping_snd
+	   || sock_flag(meta_sk, SOCK_DEAD)) {
+		trace_printk("worker: cannot create new sf: %d %d %d %d \t %d %d \n",
+				meta_sk->sk_state == TCP_CLOSE,
+				!tcp_sk(meta_sk)->inside_tk_table,
+				mpcb->infinite_mapping_rcv,
+				mpcb->send_infinite_mapping,
+				mpcb->infinite_mapping_snd,
+				sock_flag(meta_sk, SOCK_DEAD));
+		goto exit;
+	}
+
+	loc = pm_priv->loc_addr;
+	rem = pm_priv->rem_addr;
+
+	mptcp_init4_subsockets(meta_sk, &loc, &rem);
+exit:
+	release_sock(meta_sk);
+	mutex_unlock(&mpcb->mpcb_mutex);
+	sock_put(meta_sk);
+	kfree(pm_priv);
+	trace_printk("init subsockets done, sock released \n");
+}
+
+
 /* normally (or always?) this helper runs in interrupt context,
  * since it is triggered by BPF program, which is event-based,
  * in turn is triggered typically when receiving a packet.
@@ -3472,7 +3536,6 @@ BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 	*/
 	// beware: there may be conflict with in-kernel PMs
 	// do we really need this?
-	pm_priv = (struct bpf_pm_priv *)&tp->mpcb->mptcp_pm[0];
 
 	if (!sk_fullsock(meta_sk)) {
 		trace_printk("sk is not fullsock !!!");
@@ -3483,6 +3546,9 @@ BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 		pr_err("not an MPTCP connection!\n");
 		return -EINVAL;
 	}
+
+	trace_printk("subflow_work init\n");
+	pm_priv = kmalloc(sizeof(*pm_priv), GFP_ATOMIC);
 	if (!pm_priv) {
 		trace_printk("pm_priv is NULL !!!");
 		return -EINVAL;
@@ -3499,6 +3565,10 @@ BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 				sock_flag(meta_sk, SOCK_DEAD));
 		return -EINVAL;
 	}
+
+	INIT_WORK(&pm_priv->subflow_work, bpf_create_subflow_worker);
+
+	pm_priv->mpcb = tp->mpcb;
 
 	/* filling local address info */
 	if (loc_addr) {
@@ -3541,6 +3611,8 @@ BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 		sock_hold(meta_sk);
 		queue_work(mptcp_wq, &pm_priv->subflow_work);
 	}
+	/* add pm_priv to the list in mpcb */
+	list_add(&pm_priv->list, &tp->mpcb->pm_work_list);
 	return 0;
 }
 
