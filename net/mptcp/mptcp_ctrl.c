@@ -1557,8 +1557,6 @@ void mptcp_del_sock(struct sock *sk)
  */
 void mptcp_update_metasocket(const struct sock *meta_sk)
 {
-	struct tcp_sock *mtp = tcp_sk(meta_sk);
-
 	tcp_call_bpf(meta_sk, BPF_MPTCP_NEW_SESSION, 0, NULL);
 
 	if (tcp_sk(meta_sk)->mpcb->pm_ops->new_session)
