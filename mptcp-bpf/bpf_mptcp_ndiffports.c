@@ -38,6 +38,8 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		 * will be used to set up new subflow
 		 */
 		rv = bpf_open_subflow( skops,  NULL, 0,  NULL, 0);
+		rv = bpf_open_subflow( skops,  NULL, 0,  NULL, 0);
+		rv = bpf_open_subflow( skops,  NULL, 0,  NULL, 0);
 
 		char opensf[] = "open new subflow: ret: %d\n";
 		bpf_trace_printk(opensf, sizeof(opensf), rv);
