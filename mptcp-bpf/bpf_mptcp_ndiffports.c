@@ -28,7 +28,7 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 
 	if (skops->op ==  BPF_MPTCP_FULLY_ESTABLISHED) {
 		char fully[] = "mptcp conn is fully established: token:%x is_master:%d\n";
-		bpf_trace_printk(fully, sizeof(fully),  skops->args[0],
+		bpf_trace_printk(fully, sizeof(fully),  skops->mptcp_loc_token,
 							skops->args[1]);
 		/* if this is not master sk, skip it */
 		if (!skops->args[1])
