@@ -22,7 +22,7 @@ struct tcp_option {
 };
 
 SEC("sockops")
-int bpf_testcb(struct bpf_sock_ops *skops)
+int insert_parse_setsockopt(struct bpf_sock_ops *skops)
 {
 	struct tcp_option opt = {
 		.kind = 28, // TCP user option

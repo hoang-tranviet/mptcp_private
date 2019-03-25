@@ -22,7 +22,7 @@ struct tcp_option {
 };
 
 SEC("sockops")
-int bpf_testcb(struct bpf_sock_ops *skops)
+int insert_option(struct bpf_sock_ops *skops)
 {
 	// Use well-known option to avoid trigger BPF PARSE_OPTION callback
 	struct tcp_option opt = {
