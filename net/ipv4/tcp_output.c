@@ -556,15 +556,17 @@ static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
 		return;
 
 	if (opts->extending_len > 0) {
+		int len;
 		/* TODO: support more than 4 bytes */
 		int w = tcp_call_bpf((struct sock *)tp, BPF_TCP_OPTIONS_WRITE, 0, NULL);
+		/* TODO: need more rigorous check */
 		if (w != 0) {
 			/* copy option data to the buffer*/
 			*(int *)ptr = w;
 			/* get the third byte, for little endian only
 			 * TODO: support both endianess styles
 			 */
-			int len = (w << 16) >> 24;
+			len = (w << 16) >> 24;
 			ptr += len;
 		}
 	}
