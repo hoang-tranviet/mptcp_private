@@ -3873,11 +3873,14 @@ void tcp_parse_options(const struct net *net,
 			default:
 			{
 				unsigned int data = 0;
-				if (tp == NULL)
+				//if (tp != NULL && skb->sk == NULL) {
+				if (skb->sk == NULL) {
+					pr_err("skb->sk is null, not good :(");
 					break;
+				}
 				memcpy(&data, ptr - 2, opsize);
 
-				tcp_call_bpf_3arg((struct sock *)tp,
+				tcp_call_bpf_3arg(skb->sk,
 						  BPF_TCP_PARSE_OPTIONS,
 						  opcode, opsize, data);
 				break;
