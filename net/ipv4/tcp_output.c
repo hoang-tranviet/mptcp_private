@@ -3257,6 +3257,8 @@ struct sk_buff *tcp_make_synack(const struct sock *sk, struct dst_entry *dst,
 	struct sk_buff *skb;
 	int tcp_header_size;
 	struct tcphdr *th;
+	int extending_len;
+	int options_size;
 	int mss;
 
 	skb = alloc_skb(MAX_TCP_HEADER, GFP_ATOMIC);
@@ -3301,8 +3303,18 @@ struct sk_buff *tcp_make_synack(const struct sock *sk, struct dst_entry *dst,
 	md5 = tcp_rsk(req)->af_specific->req_md5_lookup(sk, req_to_sk(req));
 #endif
 	skb_set_hash(skb, tcp_rsk(req)->txhash, PKT_HASH_TYPE_L4);
-	tcp_header_size = tcp_synack_options(sk, req, mss, skb, &opts, md5,
-					     foc) + sizeof(*th);
+	options_size = tcp_synack_options(sk, req, mss, skb, &opts, md5, foc);
+
+	if (BPF_SOCK_OPS_TEST_FLAG(tp, BPF_SOCK_OPS_OPTION_WRITE_FLAG)) {
+		extending_len = tcp_call_bpf_2arg(sk, BPF_TCP_OPTIONS_SIZE_CALC,
+						  0, options_size);
+		if ((extending_len > 0)
+		 && (options_size + extending_len <= 40)) {
+			options_size += extending_len;
+			opts.extending_len = extending_len;
+		}
+	}
+	tcp_header_size = options_size + sizeof(*th);
 
 	skb_push(skb, tcp_header_size);
 	skb_reset_transport_header(skb);
