@@ -3247,6 +3247,7 @@ struct sk_buff *tcp_make_synack(const struct sock *sk, struct dst_entry *dst,
 {
 	struct inet_request_sock *ireq = inet_rsk(req);
 	const struct tcp_sock *tp = tcp_sk(sk);
+	unsigned int ext_len, options_size;
 	struct tcp_md5sig_key *md5 = NULL;
 	struct tcp_out_options opts;
 	struct sk_buff *skb;
@@ -3296,8 +3297,18 @@ struct sk_buff *tcp_make_synack(const struct sock *sk, struct dst_entry *dst,
 	md5 = tcp_rsk(req)->af_specific->req_md5_lookup(sk, req_to_sk(req));
 #endif
 	skb_set_hash(skb, tcp_rsk(req)->txhash, PKT_HASH_TYPE_L4);
-	tcp_header_size = tcp_synack_options(sk, req, mss, skb, &opts, md5,
-					     foc) + sizeof(*th);
+	options_size = tcp_synack_options(sk, req, mss, skb, &opts, md5, foc);
+
+	if (BPF_SOCK_OPS_TEST_FLAG(tp, BPF_SOCK_OPS_OPTION_WRITE_FLAG)) {
+		ext_len = tcp_call_bpf_2arg(sk, BPF_TCP_OPTIONS_SIZE_CALC,
+						  0, options_size);
+		if ((ext_len > 0)
+		 && (options_size + ext_len <= MAX_TCP_OPTION_SPACE)) {
+			options_size += ext_len;
+			opts.ext_len = ext_len;
+		}
+	}
+	tcp_header_size = options_size + sizeof(*th);
 
 	skb_push(skb, tcp_header_size);
 	skb_reset_transport_header(skb);
