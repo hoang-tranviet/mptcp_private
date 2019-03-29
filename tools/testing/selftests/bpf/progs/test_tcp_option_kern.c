@@ -19,6 +19,13 @@ struct tcp_option {
 	__u16 data;
 };
 
+#define bpf_printk(fmt, ...)					\
+({								\
+	       char ____fmt[] = fmt;				\
+	       bpf_trace_printk(____fmt, sizeof(____fmt),	\
+				##__VA_ARGS__);			\
+})
+
 #define IW 5
 
 SEC("sockops")
@@ -66,6 +73,7 @@ int test_tcp_option(struct bpf_sock_ops *skops)
 
 		/* Keep the first two bytes */
 		opt_val = rcv_opt >> 16;
+		bpf_printk("Parse option value: %x\n", opt_val);
 		key = 1;
 		bpf_map_update_elem(&option_count, &key, &opt_val, BPF_ANY);
 		break;
