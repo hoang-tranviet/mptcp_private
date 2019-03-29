@@ -18,7 +18,7 @@
 
 #define EXPECT_EQ(expected, actual, fmt)			\
 	do {							\
-		if ((expected) <= (actual)) {			\
+		if ((expected) != (actual)) {			\
 			printf("  Value of: " #actual "\n"	\
 			       "    Actual: %" fmt "\n"		\
 			       "  Expected: %" fmt "\n",	\
@@ -27,32 +27,6 @@
 		}						\
 	} while (0)
 
-int verify_result(const struct tcpbpf_globals *result)
-{
-	__u32 expected_events;
-
-	expected_events = ((1 << BPF_SOCK_OPS_TIMEOUT_INIT) |
-			   (1 << BPF_SOCK_OPS_RWND_INIT) |
-			   (1 << BPF_SOCK_OPS_TCP_CONNECT_CB) |
-			   (1 << BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB) |
-			   (1 << BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB) |
-			   (1 << BPF_SOCK_OPS_NEEDS_ECN) |
-			   (1 << BPF_SOCK_OPS_STATE_CB) |
-			   (1 << BPF_SOCK_OPS_TCP_LISTEN_CB));
-
-	EXPECT_EQ(expected_events, result->event_map, "#" PRIx32);
-	EXPECT_EQ(501ULL, result->bytes_received, "llu");
-	EXPECT_EQ(1002ULL, result->bytes_acked, "llu");
-	EXPECT_EQ(1, result->data_segs_in, PRIu32);
-	EXPECT_EQ(1, result->data_segs_out, PRIu32);
-	EXPECT_EQ(0x80, result->bad_cb_test_rv, PRIu32);
-	EXPECT_EQ(0, result->good_cb_test_rv, PRIu32);
-	EXPECT_EQ(1, result->num_listen, PRIu32);
-
-	return 0;
-err:
-	return -1;
-}
 
 int verify_option_result(int map_fd)
 {
