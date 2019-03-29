@@ -58,6 +58,11 @@ int test_tcp_option(struct bpf_sock_ops *skops)
 		memcpy(&option_buffer, &opt, sizeof(int));
 		rv = option_buffer;
 		break;
+
+	case BPF_SOCK_OPS_TCP_LISTEN_CB:
+		rv = bpf_sock_ops_cb_flags_set(skops,
+					BPF_SOCK_OPS_OPTION_PARSE_FLAG);
+		break;
 	case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
 		key = 0;
 		opt_val = 0;
