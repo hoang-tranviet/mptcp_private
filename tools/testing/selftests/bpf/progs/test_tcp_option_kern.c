@@ -65,9 +65,10 @@ int test_tcp_option(struct bpf_sock_ops *skops)
 		break;
 	case BPF_TCP_PARSE_OPTIONS:
 		rcv_opt = bpf_ntohl(skops->args[2]);
-		/* Keep the last 16 bits */
-		opt_val = rcv_opt & 0x0000FFFF;
-		bpf_printk("Parse option value: %u\n", opt_val);
+		bpf_printk("Parsed option data: %u\n", rcv_opt);
+
+		/* Keep the first 16 bits */
+		opt_val = rcv_opt >> 16;
 		key = 1;
 		bpf_map_update_elem(&option_count, &key, &opt_val, BPF_ANY);
 		break;
