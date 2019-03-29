@@ -32,7 +32,7 @@ def send(sock, s):
 serverPort = int(sys.argv[1])
 
 # create active socket
-sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 try:
     sock.connect(('localhost', serverPort))
 except socket.error as e:
