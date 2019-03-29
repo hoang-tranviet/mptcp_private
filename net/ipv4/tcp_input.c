@@ -3763,6 +3763,7 @@ static void smc_parse_options(const struct tcphdr *th,
  * the fast version below fails.
  */
 void tcp_parse_options(const struct net *net,
+		       const struct sock *sk,
 		       const struct sk_buff *skb,
 		       struct tcp_options_received *opt_rx, int estab,
 		       struct tcp_fastopen_cookie *foc)
@@ -3873,12 +3874,11 @@ void tcp_parse_options(const struct net *net,
 			default:
 			{
 				unsigned int data = 0;
-				if (tp == NULL)
+				if (sk == NULL)
 					break;
 				memcpy(&data, ptr - 2, opsize);
 
-				tcp_call_bpf_3arg((struct sock *)tp,
-						  BPF_TCP_PARSE_OPTIONS,
+				tcp_call_bpf_3arg(sk, BPF_TCP_PARSE_OPTIONS,
 						  opcode, opsize, data);
 				break;
 			}
@@ -3912,7 +3912,7 @@ static bool tcp_parse_aligned_timestamp(struct tcp_sock *tp, const struct tcphdr
 /* Fast parse options. This hopes to only see timestamps.
  * If it is wrong it falls back on tcp_parse_options().
  */
-static bool tcp_fast_parse_options(const struct net *net,
+static bool tcp_fast_parse_options(const struct sock *sk,
 				   const struct sk_buff *skb,
 				   const struct tcphdr *th, struct tcp_sock *tp)
 {
@@ -3928,7 +3928,7 @@ static bool tcp_fast_parse_options(const struct net *net,
 			return true;
 	}
 
-	tcp_parse_options(net, skb, &tp->rx_opt, 1, NULL);
+	tcp_parse_options(sock_net(sk), sk, skb, &tp->rx_opt, 1, NULL);
 	if (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr)
 		tp->rx_opt.rcv_tsecr -= tp->tsoffset;
 
@@ -5357,7 +5357,7 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
 	bool rst_seq_match = false;
 
 	/* RFC1323: H1. Apply PAWS check first. */
-	if (tcp_fast_parse_options(sock_net(sk), skb, th, tp) &&
+	if (tcp_fast_parse_options(sk, skb, th, tp) &&
 	    tp->rx_opt.saw_tstamp &&
 	    tcp_paws_discard(sk, skb)) {
 		if (!th->rst) {
@@ -5703,7 +5703,7 @@ static bool tcp_rcv_fastopen_synack(struct sock *sk, struct sk_buff *synack,
 		/* Get original SYNACK MSS value if user MSS sets mss_clamp */
 		tcp_clear_options(&opt);
 		opt.user_mss = opt.mss_clamp = 0;
-		tcp_parse_options(sock_net(sk), synack, &opt, 0, NULL);
+		tcp_parse_options(sock_net(sk), sk, synack, &opt, 0, NULL);
 		mss = opt.mss_clamp;
 	}
 
@@ -5769,7 +5769,7 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
 	int saved_clamp = tp->rx_opt.mss_clamp;
 	bool fastopen_fail;
 
-	tcp_parse_options(sock_net(sk), skb, &tp->rx_opt, 0, &foc);
+	tcp_parse_options(sock_net(sk), sk, skb, &tp->rx_opt, 0, &foc);
 	if (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr)
 		tp->rx_opt.rcv_tsecr -= tp->tsoffset;
 
@@ -6440,7 +6440,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
 	tcp_clear_options(&tmp_opt);
 	tmp_opt.mss_clamp = af_ops->mss_clamp;
 	tmp_opt.user_mss  = tp->rx_opt.user_mss;
-	tcp_parse_options(sock_net(sk), skb, &tmp_opt, 0,
+	tcp_parse_options(sock_net(sk), sk, skb, &tmp_opt, 0,
 			  want_cookie ? NULL : &foc);
 
 	if (want_cookie && !tmp_opt.saw_tstamp)
