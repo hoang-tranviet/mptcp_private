@@ -3053,7 +3053,8 @@ struct bpf_sock_ops {
 #define BPF_SOCK_OPS_RETRANS_CB_FLAG	(1<<1)
 #define BPF_SOCK_OPS_STATE_CB_FLAG	(1<<2)
 #define BPF_SOCK_OPS_OPTION_WRITE_FLAG	(1<<3)
-#define BPF_SOCK_OPS_ALL_CB_FLAGS       0xf		/* Mask of all currently
+#define BPF_SOCK_OPS_OPTION_PARSE_FLAG	(1<<4)
+#define BPF_SOCK_OPS_ALL_CB_FLAGS       0x1f		/* Mask of all currently
 							 * supported cb flags
 							 */
 
