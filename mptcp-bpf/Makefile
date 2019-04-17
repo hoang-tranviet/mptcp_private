@@ -20,6 +20,7 @@ TEST_GEN_PROGS = test_mptcp_user test_mptcp_pm_user
 
 TEST_GEN_FILES = bpf_mptcp_fullmesh.o bpf_mptcp_ndiffports.o \
 		 bpf_mptcp_cap_bw_kern.o \
+		 bpf_mptcp_cap_bw_pacing.o \
 		 bpf_mptcp_priority_kern.o \
 		 bpf_mptcp_reinject_data_acks_kern.o \
 
