@@ -34,7 +34,7 @@ struct mptcp_option mp_opt = {
 	.len = 4,
 	.subtype = 15,
 	.rsv = 0,
-	.data = 100, // capped bw, in KBps
+	.data = 12, // log2(capped bw)-> 2^12 = 4096 Kbps
 };
 
 SEC("sockops")
@@ -66,7 +66,7 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		 * dev_type should be cellular iface instead,
 		 * this is just for testing */
 		//if (id != 1  &&  dev_type == ARPHRD_LOOPBACK) {
-		if (id != 1) {
+		if (id != 100) {
 			/* Enable option write callback on this subflow */
 			bpf_sock_ops_cb_flags_set( skops, BPF_SOCK_OPS_OPTION_WRITE_FLAG);
 			rv = 1;
@@ -97,17 +97,22 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 	}
 	case BPF_MPTCP_PARSE_OPTIONS:
 	{
-		unsigned int clamp, bw, rtt;
-		unsigned int mtu = 1500;
+		unsigned int clamp, val, bw, rtt;
+		unsigned int mss = 1500;
 
 		bpf_getsockopt(skops, IPPROTO_TCP, TCP_BPF_SNDCWND_CLAMP, &clamp, sizeof(clamp));
 		char fmt11[] = "snd_cwnd clamp before = %d \n";
 		bpf_trace_printk(fmt11, sizeof(fmt11), clamp);
 
-		/* get the parsed option, swap to little-endian */
-		unsigned int option = bswap_32(skops->args[2]);
-		/* Keep the last 8 bits */
-		bw = option & 0x000000FF;
+		/* get the parsed option */
+		unsigned int option = bpf_ntohl(skops->args[2]);
+		val = option & 0x000000FF;
+
+		/* bw = 2^val */
+		if (val < 32)
+			bw = 1 << val;
+		else
+			bw = val;
 
 		rtt = (skops->srtt_us >> 3)/1000;
 
@@ -115,19 +120,22 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		bpf_trace_printk(fmt10, sizeof(fmt10),  skops->args[0], skops->args[1],
 							option);
 
-		char fmt12[] = "requested bw: %u KB/s\n";
-		bpf_trace_printk(fmt12, sizeof(fmt12), bw);
+		char fmt12[] = "requested val:%u bw: %u KB/s\n";
+		bpf_trace_printk(fmt12, sizeof(fmt12), val, bw);
 
 		char fmt22[] = "rtt:%u ms  mss_cache:%u snd_cwnd: %u\n";
 		bpf_trace_printk(fmt22, sizeof(fmt22), rtt, skops->mss_cache, skops->snd_cwnd);
 
 		if (rtt == 0)
 			break;
-		/* if this is a valid MSS, use it to estimate MTU */
+		/* if this is a valid MSS, use it to estimate targeted cwnd */
+		/* better to use MTU, but we don't know it */
 		if (skops->mss_cache > 0)
-			mtu = skops->mss_cache; // should +50;
+			/* convert from bytes to bits */
+			mss = skops->mss_cache * 8;
 
-		clamp = bw*rtt/mtu;
+		/* adding mss/2 is to round(), instead of floor() */
+		clamp = (bw*rtt + mss/2)/mss;
 
 		rv = bpf_setsockopt(skops, IPPROTO_TCP, TCP_BPF_SNDCWND_CLAMP,
 							&clamp, sizeof(clamp));
