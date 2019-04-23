@@ -1849,7 +1849,6 @@ void mptcp_parse_options(const uint8_t *ptr, int opsize,
 	{
 		unsigned int data = 0;
 		if (tp == NULL) {
-			pr_err("%s: tp is null!\n", __func__);
 			break;
 		}
 
