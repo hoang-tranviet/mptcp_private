@@ -3728,9 +3728,37 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 			name[TCP_CA_NAME_MAX-1] = 0;
 			ret = tcp_set_congestion_control(sk, name, false,
 							 reinit);
-		} else {
-			struct tcp_sock *tp = tcp_sk(sk);
+		}
+		else if (optname == MPTCP_SCHEDULER) {
+			char name[MPTCP_SCHED_NAME_MAX];
+			int len;
 
+			trace_printk("setsockopt optlen: %d\n", optlen);
+			if (optlen < 1)
+				return -EINVAL;
+
+			/* Cannot be used if MPTCP is not used or we already have
+			 * established an MPTCP-connection.
+			 */
+			if (mptcp_init_failed || !sysctl_mptcp_enabled ||
+			    (sk->sk_state != TCP_CLOSE &&
+			     sk->sk_state != TCP_LISTEN &&
+			     sk->sk_state != TCP_SYN_RECV)) {
+				trace_printk("state: %d\n", sk->sk_state);
+				return -EINVAL;
+			}
+
+			len = min_t(long, MPTCP_SCHED_NAME_MAX - 1, optlen);
+			trace_printk("setsockopt len: %d\n", len);
+			strncpy(name, optval, len);
+			name[len] = 0;
+
+			bh_lock_sock(sk);
+			ret = mptcp_set_scheduler(sk, name);
+			bh_unlock_sock(sk);
+		}
+		else {
+			struct tcp_sock *tp = tcp_sk(sk);
 			if (optlen != sizeof(int))
 				return -EINVAL;
 
@@ -3776,31 +3804,6 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 				}
 				tp->mpcb->acked_bytes_threshold = val;
 				break;
-			case MPTCP_SCHEDULER: {
-				char name[MPTCP_SCHED_NAME_MAX];
-				int len;
-
-				if (optlen < 1)
-					return -EINVAL;
-
-				/* Cannot be used if MPTCP is not used or we already have
-				 * established an MPTCP-connection.
-				 */
-				if (mptcp_init_failed || !sysctl_mptcp_enabled ||
-				    (sk->sk_state != TCP_CLOSE &&
-				     sk->sk_state != TCP_LISTEN &&
-			             sk->sk_state != TCP_SYN_RECV))
-					return -EINVAL;
-
-				len = min_t(long, MPTCP_SCHED_NAME_MAX - 1, optlen);
-				strncpy(name, optval, len);
-				name[len] = 0;
-
-				bh_lock_sock(sk);
-				ret = mptcp_set_scheduler(sk, name);
-				bh_unlock_sock(sk);
-				break;
-			}
 			default:
 				ret = -EINVAL;
 			}
@@ -3868,15 +3871,15 @@ BPF_CALL_5(bpf_getsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 			}
 		case MPTCP_SCHEDULER:
 			optlen = min_t(unsigned int, optlen, MPTCP_SCHED_NAME_MAX);
+			trace_printk("getsockopt kernel optlen: %d\n", optlen);
 
 			if (mptcp(tcp_sk(sk))) {
 				struct mptcp_cb *mpcb = tcp_sk(mptcp_meta_sk(sk))->mpcb;
-
-				if (strncpy(optval, mpcb->sched_ops->name, optlen))
-					goto err_clear;
+				strncpy(optval, mpcb->sched_ops->name, optlen);
+				trace_printk("mptcp-enabled sk, sched: %s\n", optval);
 			} else {
-				if (strncpy(optval, tcp_sk(sk)->mptcp_sched_name, optlen))
-					goto err_clear;
+				strncpy(optval, tcp_sk(sk)->mptcp_sched_name, optlen);
+				trace_printk("not an mptcp sk!, sched: %s\n", optval);
 			}
 			optval[optlen - 1] = 0;
 			break;
