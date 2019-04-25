@@ -12,10 +12,12 @@
 // cannot be larger than 6: "invalid indirect read from stack off -44+5 size 6"
 #define SCHED_LENGTH 6
 
-#define DEBUG 0
+#define DEBUG 1
 
 struct bpf_map_def SEC("maps") sched_map = {
-	.type = BPF_MAP_TYPE_HASH,
+	//.type = BPF_MAP_TYPE_HASH,
+	//.type = BPF_MAP_TYPE_PERCPU_ARRAY,
+	.type = BPF_MAP_TYPE_PERCPU_HASH,
 	.key_size = sizeof(__u32),
 	.value_size = SCHED_LENGTH,
 	.max_entries = 5,
@@ -27,38 +29,44 @@ static inline void init_map()
 	__u32 key1 = 1;
 	__u32 key2 = 2;
 	__u32 key3 = 3;
-	char a[]="def";
-	char b[]="redun";
+	__u32 key4 = 4;
+	char a[]="default";
+	char b[]="redundant";
 	char c[]="blest";
-	char d[]="desync";
-//	char e[]="roundrobin";
+	char d[]="mctcpdesync";
+	char e[]="roundrobin";
 
 	bpf_map_update_elem(&sched_map, &key0, a, BPF_ANY);
 	bpf_map_update_elem(&sched_map, &key1, b, BPF_ANY);
 	bpf_map_update_elem(&sched_map, &key2, c, BPF_ANY);
 	bpf_map_update_elem(&sched_map, &key3, d, BPF_ANY);
+	bpf_map_update_elem(&sched_map, &key4, e, BPF_ANY);
 }
 
 int _version SEC("version") = 1;
 
-struct tcp_option {
-	__u8 kind;
-	__u8 len;
-	__u16 data;
+struct mptcp_option {
+        __u8 kind;
+        __u8 len;
+        __u8 rsv:4, subtype:4;
+        __u8 data;
 };
 
-struct tcp_option opt = {
-	.kind = 66, 	// arbitrary
-	.len = sizeof(opt),   	// of this option struct
-	.data = bpf_htons(0x0003), // convert to NBO
+struct mptcp_option mp_opt = {
+        .kind = 30, // MPTCP code
+        .len = 4,
+        .subtype = 14,
+        .rsv = 0,
+        .data = 0x02, // id
 };
+
 
 SEC("sockops")
 int bpf_testcb(struct bpf_sock_ops *skops)
 {
 	int rv = -1;
 	int op;
-	int option_len = sizeof(opt);
+	int option_len = sizeof(mp_opt);
 	int option_buffer;
 	char sched_name[20];
 
@@ -87,30 +95,35 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		break;
 	case BPF_MPTCP_OPTIONS_WRITE:
 		/* put the struct option into the reply value */
-		memcpy(&option_buffer, &opt, sizeof(int));
+		memcpy(&option_buffer, &mp_opt, sizeof(int));
 		rv = option_buffer;
 
-		char fmt3[] = "OPTIONS_WRITE: %x \n";
-		bpf_trace_printk(fmt3, sizeof(fmt3), rv);
+		if (DEBUG) {
+			char fmt3[] = "OPTIONS_WRITE: %x \n";
+			bpf_trace_printk(fmt3, sizeof(fmt3), rv);
+		}
 
-		if (skops->state == BPF_TCP_ESTABLISHED && skops->data_segs_out > 5)
+		if (skops->state == BPF_TCP_ESTABLISHED)
 			/* Disable option write callback */
-		//	bpf_sock_ops_cb_flags_set(skops, skops->bpf_sock_ops_cb_flags
-		//					 & ~BPF_SOCK_OPS_OPTION_WRITE_FLAG);
-			bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG &
-				       			~BPF_SOCK_OPS_OPTION_WRITE_FLAG);
+			bpf_sock_ops_cb_flags_set(skops, skops->bpf_sock_ops_cb_flags
+							 & ~BPF_SOCK_OPS_OPTION_WRITE_FLAG);
 		break;
 	case BPF_MPTCP_PARSE_OPTIONS:
 		/* get current Scheduler */
 		rv = bpf_getsockopt(skops, IPPROTO_TCP, MPTCP_SCHEDULER, sched_name, 20);
 
-		char fmt11[] = "SCHED: %s\n";
-		bpf_trace_printk(fmt11, sizeof(fmt11), sched_name);
+		char fmt11[] = "SCHED: %s, rv =%d\n";
+		bpf_trace_printk(fmt11, sizeof(fmt11), sched_name, rv);
+
+
+		if (skops->state == BPF_TCP_ESTABLISHED
+		 || skops->state == BPF_TCP_SYN_RECV)
+			break;
 
 		unsigned int sch_opt, sch_id;
 		sch_opt = bpf_ntohl(skops->args[2]);
-		/* Keep the last 16 bits */
-		sch_id = sch_opt & 0x0000FFFF;
+		/* Keep the last 8 bits */
+		sch_id = sch_opt & 0x000000FF;
 
 		char fmt10[] = "PARSE_OPTIONS: raw %x swapped %x sch_id %x\n";
 		bpf_trace_printk(fmt10, sizeof(fmt10), skops->args[2], sch_opt, sch_id);
@@ -126,7 +139,7 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		}
 		/* get new Sched */
 		rv = bpf_getsockopt(skops, IPPROTO_TCP, MPTCP_SCHEDULER, sched_name, 20);
-		bpf_trace_printk(fmt11, sizeof(fmt11), sched_name);
+		bpf_trace_printk(fmt11, sizeof(fmt11), sched_name, rv);
 		break;
 	default:
 		rv = -1;
