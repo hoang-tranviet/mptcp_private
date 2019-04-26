@@ -3733,29 +3733,39 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 			char name[MPTCP_SCHED_NAME_MAX];
 			int len;
 
-			trace_printk("setsockopt optlen: %d\n", optlen);
+			trace_printk("state: %d optlen: %d\n", sk->sk_state, optlen);
 			if (optlen < 1)
 				return -EINVAL;
 
 			/* Cannot be used if MPTCP is not used or we already have
 			 * established an MPTCP-connection.
-			 */
 			if (mptcp_init_failed || !sysctl_mptcp_enabled ||
 			    (sk->sk_state != TCP_CLOSE &&
 			     sk->sk_state != TCP_LISTEN &&
 			     sk->sk_state != TCP_SYN_RECV)) {
-				trace_printk("state: %d\n", sk->sk_state);
+				trace_printk("state: %d, bypassing setsockopt\n", sk->sk_state);
 				return -EINVAL;
 			}
+			 */
 
 			len = min_t(long, MPTCP_SCHED_NAME_MAX - 1, optlen);
 			trace_printk("setsockopt len: %d\n", len);
 			strncpy(name, optval, len);
 			name[len] = 0;
 
-			bh_lock_sock(sk);
-			ret = mptcp_set_scheduler(sk, name);
-			bh_unlock_sock(sk);
+			/* see https://www.spinics.net/lists/netdev/msg136306.html */
+			sock_hold(sk);
+			if (sk->sk_state != TCP_SYN_RECV)
+				bh_lock_sock(sk);
+
+			if (sock_owned_by_user(sk))
+				trace_printk("sock is owned by user!, bypassing setsockopt\n");
+			else
+				ret = mptcp_set_scheduler(sk, name);
+
+			if (sk->sk_state != TCP_SYN_RECV)
+				bh_unlock_sock(sk);
+			sock_put(sk);
 		}
 		else {
 			struct tcp_sock *tp = tcp_sk(sk);
