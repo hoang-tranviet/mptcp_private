@@ -103,30 +103,29 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 			bpf_trace_printk(fmt3, sizeof(fmt3), rv);
 		}
 
+		/* Disable option write callback */
 		if (skops->state == BPF_TCP_ESTABLISHED)
-			/* Disable option write callback */
 			bpf_sock_ops_cb_flags_set(skops, skops->bpf_sock_ops_cb_flags
 							 & ~BPF_SOCK_OPS_OPTION_WRITE_FLAG);
 		break;
 	case BPF_MPTCP_PARSE_OPTIONS:
+		/* on receiving 3rd ack, this hook is called on meta_sk (TCP_SYN_RCV state)
+		 * after mptcp_alloc_mpcb() and mptcp_init_scheduler() have been called.
+		 */
+
 		/* get current Scheduler */
 		rv = bpf_getsockopt(skops, IPPROTO_TCP, MPTCP_SCHEDULER, sched_name, 20);
 
-		char fmt11[] = "SCHED: %s, rv =%d\n";
-		bpf_trace_printk(fmt11, sizeof(fmt11), sched_name, rv);
-
-
-		if (skops->state == BPF_TCP_ESTABLISHED
-		 || skops->state == BPF_TCP_SYN_RECV)
-			break;
+		char fmt11[] = "PARSE: tcp state:%u current SCHED: %s\n";
+		bpf_trace_printk(fmt11, sizeof(fmt11), skops->state, sched_name);
 
 		unsigned int sch_opt, sch_id;
 		sch_opt = bpf_ntohl(skops->args[2]);
 		/* Keep the last 8 bits */
 		sch_id = sch_opt & 0x000000FF;
 
-		char fmt10[] = "PARSE_OPTIONS: raw %x swapped %x sch_id %x\n";
-		bpf_trace_printk(fmt10, sizeof(fmt10), skops->args[2], sch_opt, sch_id);
+		//char fmt10[] = "PARSE_OPTIONS: raw %x swapped %x sch_id %x\n";
+		//bpf_trace_printk(fmt10, sizeof(fmt10), skops->args[2], sch_opt, sch_id);
 
 		if (sch_id > 4)
 			break;
@@ -139,7 +138,13 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		}
 		/* get new Sched */
 		rv = bpf_getsockopt(skops, IPPROTO_TCP, MPTCP_SCHEDULER, sched_name, 20);
-		bpf_trace_printk(fmt11, sizeof(fmt11), sched_name, rv);
+		bpf_trace_printk(fmt11, sizeof(fmt11), skops->state, sched_name, rv);
+		break;
+	case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
+		rv = bpf_getsockopt(skops, IPPROTO_TCP, MPTCP_SCHEDULER, sched_name, 20);
+
+		char fmt22[] = "TCP_ESTABLISHED: current SCHED: %s\n";
+		bpf_trace_printk(fmt22, sizeof(fmt22), sched_name);
 		break;
 	default:
 		rv = -1;
