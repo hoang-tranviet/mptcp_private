@@ -25,25 +25,31 @@ NS1="ip netns exec ns1 "
 NS2="ip netns exec ns2 "
 NS_BR="ip netns exec nsBr "
 
-set -x
+#set -x
 
-sysctl -w net.mptcp.mptcp_debug=0
+sysctl -w net.mptcp.mptcp_debug=1
+
+# temp disable additional sf to debug
 sysctl -w net.mptcp.mptcp_path_manager=fullmesh
 
 # Clean
-$NS_BR ip link del ethBr1
-$NS_BR ip link del ethBr2
-$NS_BR ip link del ethBr3
-$NS_BR ip link del ethBr4
-$NS_BR ip link del dev br
-$NS1 ip link del veth1
-$NS2 ip link del veth2
-$NS1 ip link del veth3
-$NS2 ip link del veth4
+function clean() {
+	$NS_BR ip link del ethBr1
+	$NS_BR ip link del ethBr2
+	$NS_BR ip link del ethBr3
+	$NS_BR ip link del ethBr4
+	$NS_BR ip link del dev br
+	$NS1 ip link del veth1
+	$NS2 ip link del veth2
+	$NS1 ip link del veth3
+	$NS2 ip link del veth4
 
-ip netns del ns1
-ip netns del ns2
-ip netns del nsBr
+	ip netns del ns1
+	ip netns del ns2
+	ip netns del nsBr
+}
+
+clean &> /dev/null
 
 # Add namespaces
 ip netns add ns1
@@ -163,6 +169,13 @@ $NS2  tcpdump -i veth4 -w dump_4_client &
 $NS1  python3 -m http.server 80 &
 
 sleep 1
+
+$NS2 ip route get $serverIP
+$NS2 traceroute $serverIP
+
+# to have enough TCP option space in third ACK
+$NS1 sysctl -w net.ipv4.tcp_timestamps=0
+$NS2 sysctl -w net.ipv4.tcp_timestamps=0
 
 # client will self-terminate in (-m) seconds
 $NS2  curl $serverIP:$serverPort/vmlinux.o  -m 1  -o /dev/null
