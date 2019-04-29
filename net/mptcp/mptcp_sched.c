@@ -561,6 +561,25 @@ static struct mptcp_sched_ops *__mptcp_sched_find_autoload(const char *name)
 	return sched;
 }
 
+/* Manage refcounts on socket close. */
+void mptcp_cleanup_scheduler(struct mptcp_cb *mpcb)
+{
+	if (mpcb->sched_ops)
+		module_put(mpcb->sched_ops->owner);
+}
+
+static void mptcp_reinit_scheduler(struct sock *sk,
+                                  struct mptcp_sched_ops *sched)
+{
+       struct mptcp_cb *mpcb = tcp_sk(sk)->mpcb;
+
+       mptcp_cleanup_scheduler(mpcb);
+       mpcb->sched_ops = sched;
+
+       if (sk->sk_state != TCP_CLOSE && mpcb->sched_ops->init)
+               mpcb->sched_ops->init(sk);
+}
+
 void mptcp_init_scheduler(struct mptcp_cb *mpcb)
 {
 	struct mptcp_sched_ops *sched;
@@ -600,19 +619,21 @@ int mptcp_set_scheduler(struct sock *sk, const char *name)
 		err = -ENOENT;
 	} else if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN)) {
 		err = -EPERM;
-	} else {
+	} else if (!mptcp(tcp_sk(sk))) {
+	// mpcb->sched_ops has not been initialized
+	// mptcp_alloc_mpcb will use this name when calling mptcp_init_scheduler
 		strcpy(tcp_sk(sk)->mptcp_sched_name, name);
 		tcp_sk(sk)->mptcp_sched_setsockopt = 1;
+		trace_printk("set first scheduler\n");
+	} else {
+	// established conn, sk is meta sk
+		if (sched != tcp_sk(sk)->mpcb->sched_ops)
+			mptcp_reinit_scheduler(sk, sched);
+		trace_printk("change scheduler\n");
 	}
 	rcu_read_unlock_bh();
 
 	return err;
-}
-
-/* Manage refcounts on socket close. */
-void mptcp_cleanup_scheduler(struct mptcp_cb *mpcb)
-{
-	module_put(mpcb->sched_ops->owner);
 }
 
 /* Set default value from kernel configuration at bootup */
