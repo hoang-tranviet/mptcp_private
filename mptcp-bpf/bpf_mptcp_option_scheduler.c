@@ -104,9 +104,11 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		}
 
 		/* Disable option write callback */
+		/*
 		if (skops->state == BPF_TCP_ESTABLISHED)
 			bpf_sock_ops_cb_flags_set(skops, skops->bpf_sock_ops_cb_flags
 							 & ~BPF_SOCK_OPS_OPTION_WRITE_FLAG);
+							 */
 		break;
 	case BPF_MPTCP_PARSE_OPTIONS:
 		/* on receiving 3rd ack, this hook is called on meta_sk (TCP_SYN_RCV state)
