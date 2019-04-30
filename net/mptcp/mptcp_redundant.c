@@ -372,7 +372,7 @@ static struct mptcp_sched_ops mptcp_sched_red = {
 	.next_segment = mptcp_red_next_segment,
 	.init = redsched_init,
 	.release = redsched_release,
-	.name = "redundant",
+	.name = "red",
 	.owner = THIS_MODULE,
 };
 

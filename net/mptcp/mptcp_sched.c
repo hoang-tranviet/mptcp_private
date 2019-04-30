@@ -452,7 +452,7 @@ struct mptcp_sched_ops mptcp_sched_default = {
 	.get_subflow = get_available_subflow,
 	.next_segment = mptcp_next_segment,
 	.init = defsched_init,
-	.name = "default",
+	.name = "def",
 	.owner = THIS_MODULE,
 };
 

@@ -289,7 +289,7 @@ static struct mptcp_sched_ops mptcp_sched_rr = {
 	.get_subflow = rr_get_available_subflow,
 	.next_segment = mptcp_rr_next_segment,
 	.init = rrsched_init,
-	.name = "roundrobin",
+	.name = "rr",
 	.owner = THIS_MODULE,
 };
 
