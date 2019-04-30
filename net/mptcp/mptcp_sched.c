@@ -621,6 +621,9 @@ int mptcp_set_scheduler(struct sock *sk, const char *name)
 		err = -ENOENT;
 	} else if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN)) {
 		err = -EPERM;
+	} else if (!try_module_get(sched->owner)) {
+		/* this module is being removed, do nothing */
+		err = -EBUSY;
 	} else if (!mptcp(tcp_sk(sk))) {
 	// mpcb->sched_ops has not been initialized
 	// mptcp_alloc_mpcb will use this name when calling mptcp_init_scheduler
