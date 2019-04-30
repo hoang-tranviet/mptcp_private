@@ -199,7 +199,7 @@ struct sock *blest_get_available_subflow(struct sock *meta_sk, struct sk_buff *s
 	bestsk = get_available_subflow(meta_sk, skb, zero_wnd_test);
 
 	/* if we decided to use a slower flow, we have the option of not using it at all */
-	if (bestsk && minsk && bestsk != minsk) {
+	if (skb && bestsk && minsk && bestsk != minsk) {
 		u32 slow_linger_time, fast_bytes, slow_inflight_bytes, slow_bytes, avail_space;
 
 		meta_tp = tcp_sk(meta_sk);
