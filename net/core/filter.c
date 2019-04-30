@@ -3759,7 +3759,7 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 			if (sock_owned_by_user(sk))
 				trace_printk("sock is owned by user!, bypassing setsockopt\n");
 			else
-				ret = mptcp_set_scheduler(sk, name);
+				ret = mptcp_set_scheduler(sk, name, false);
 
 			sock_put(sk);
 		}

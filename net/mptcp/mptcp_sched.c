@@ -609,13 +609,16 @@ out:
 }
 
 /* Change scheduler for socket */
-int mptcp_set_scheduler(struct sock *sk, const char *name)
+int mptcp_set_scheduler(struct sock *sk, const char *name, bool load)
 {
 	struct mptcp_sched_ops *sched;
 	int err = 0;
 
 	rcu_read_lock();
-	sched = __mptcp_sched_find_autoload(name);
+	if (load)
+		sched = __mptcp_sched_find_autoload(name);
+	else
+		sched = mptcp_sched_find(name);
 
 	if (!sched) {
 		err = -ENOENT;

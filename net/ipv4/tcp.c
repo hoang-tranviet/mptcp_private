@@ -2707,7 +2707,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
 		name[val] = 0;
 
 		lock_sock(sk);
-		err = mptcp_set_scheduler(sk, name);
+		err = mptcp_set_scheduler(sk, name, true);
 		release_sock(sk);
 		return err;
 	}
