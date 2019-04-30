@@ -29,18 +29,15 @@ static inline void init_map()
 	__u32 key1 = 1;
 	__u32 key2 = 2;
 	__u32 key3 = 3;
-	__u32 key4 = 4;
-	char a[]="default";
-	char b[]="redundant";
+	char a[]="def";
+	char b[]="red";
 	char c[]="blest";
-	char d[]="mctcpdesync";
-	char e[]="roundrobin";
+	char d[]="rr\0";
 
 	bpf_map_update_elem(&sched_map, &key0, a, BPF_ANY);
 	bpf_map_update_elem(&sched_map, &key1, b, BPF_ANY);
 	bpf_map_update_elem(&sched_map, &key2, c, BPF_ANY);
 	bpf_map_update_elem(&sched_map, &key3, d, BPF_ANY);
-	bpf_map_update_elem(&sched_map, &key4, e, BPF_ANY);
 }
 
 int _version SEC("version") = 1;
@@ -57,7 +54,7 @@ struct mptcp_option mp_opt = {
         .len = 4,
         .subtype = 14,
         .rsv = 0,
-        .data = 0x02, // id
+        .data = 0x00, // id
 };
 
 
