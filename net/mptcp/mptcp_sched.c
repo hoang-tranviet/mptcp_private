@@ -628,16 +628,19 @@ int mptcp_set_scheduler(struct sock *sk, const char *name, bool load)
 		/* this module is being removed, do nothing */
 		err = -EBUSY;
 	} else if (!mptcp(tcp_sk(sk))) {
-	// mpcb->sched_ops has not been initialized
-	// mptcp_alloc_mpcb will use this name when calling mptcp_init_scheduler
+		/* mpcb->sched_ops has not been initialized
+		 * defer to mptcp_alloc_mpcb to init with this name
+		 */
 		strcpy(tcp_sk(sk)->mptcp_sched_name, name);
 		tcp_sk(sk)->mptcp_sched_setsockopt = 1;
 		trace_printk("set first scheduler\n");
 	} else {
-	// established conn, sk is meta sk
-		if (sched != tcp_sk(sk)->mpcb->sched_ops)
+		/* established conn, sk is meta sk */
+		if (sched != tcp_sk(sk)->mpcb->sched_ops) {
+			trace_printk("change scheduler\n");
 			mptcp_reinit_scheduler(sk, sched);
-		trace_printk("change scheduler\n");
+		} else
+			trace_printk("do nothing\n");
 	}
 	rcu_read_unlock();
 
