@@ -552,9 +552,9 @@ static struct mptcp_sched_ops *__mptcp_sched_find_autoload(const char *name)
 	struct mptcp_sched_ops *sched = mptcp_sched_find(name);
 #ifdef CONFIG_MODULES
 	if (!sched && capable(CAP_NET_ADMIN)) {
-		rcu_read_unlock_bh();
+		rcu_read_unlock();
 		request_module("mptcp_%s", name);
-		rcu_read_lock_bh();
+		rcu_read_lock();
 		sched = mptcp_sched_find(name);
 	}
 #endif
@@ -614,7 +614,7 @@ int mptcp_set_scheduler(struct sock *sk, const char *name)
 	struct mptcp_sched_ops *sched;
 	int err = 0;
 
-	rcu_read_lock_bh();
+	rcu_read_lock();
 	sched = __mptcp_sched_find_autoload(name);
 
 	if (!sched) {
@@ -633,7 +633,7 @@ int mptcp_set_scheduler(struct sock *sk, const char *name)
 			mptcp_reinit_scheduler(sk, sched);
 		trace_printk("change scheduler\n");
 	}
-	rcu_read_unlock_bh();
+	rcu_read_unlock();
 
 	return err;
 }
