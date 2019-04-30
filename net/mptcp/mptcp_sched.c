@@ -576,7 +576,7 @@ static void mptcp_reinit_scheduler(struct sock *sk,
        mptcp_cleanup_scheduler(mpcb);
        mpcb->sched_ops = sched;
 
-       if (sk->sk_state != TCP_CLOSE && mpcb->sched_ops->init)
+       if (mpcb->sched_ops->init)
                mpcb->sched_ops->init(sk);
 }
 
