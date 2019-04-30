@@ -3755,16 +3755,12 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 
 			/* see https://www.spinics.net/lists/netdev/msg136306.html */
 			sock_hold(sk);
-			if (sk->sk_state != TCP_SYN_RECV)
-				bh_lock_sock(sk);
 
 			if (sock_owned_by_user(sk))
 				trace_printk("sock is owned by user!, bypassing setsockopt\n");
 			else
 				ret = mptcp_set_scheduler(sk, name);
 
-			if (sk->sk_state != TCP_SYN_RECV)
-				bh_unlock_sock(sk);
 			sock_put(sk);
 		}
 		else {
