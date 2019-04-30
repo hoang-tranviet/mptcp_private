@@ -278,9 +278,17 @@ found:
 	return NULL;
 }
 
+static void rrsched_init(struct sock *sk)
+{
+	struct rrsched_priv *rr_p = rrsched_get_priv(tcp_sk(sk));
+
+	rr_p->quota = 0;
+}
+
 static struct mptcp_sched_ops mptcp_sched_rr = {
 	.get_subflow = rr_get_available_subflow,
 	.next_segment = mptcp_rr_next_segment,
+	.init = rrsched_init,
 	.name = "roundrobin",
 	.owner = THIS_MODULE,
 };

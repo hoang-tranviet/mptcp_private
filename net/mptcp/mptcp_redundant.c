@@ -356,9 +356,21 @@ static void redsched_release(struct sock *sk)
 		redsched_update_next_subflow(tp, red_cb);
 }
 
+static void redsched_init(struct sock *sk)
+{
+	struct redsched_priv *red_p = redsched_get_priv(tcp_sk(sk));
+	struct redsched_cb *red_cb = redsched_get_cb(tcp_sk(mptcp_meta_sk(sk)));
+
+	red_p->skb = NULL;
+	red_p->skb_end_seq = 0;
+
+	red_cb->next_subflow = NULL;
+}
+
 static struct mptcp_sched_ops mptcp_sched_red = {
 	.get_subflow = red_get_available_subflow,
 	.next_segment = mptcp_red_next_segment,
+	.init = redsched_init,
 	.release = redsched_release,
 	.name = "redundant",
 	.owner = THIS_MODULE,
