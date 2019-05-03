@@ -87,7 +87,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	if (argc > 3  &&  strncmp(argv[3], "q", 1)) {
+	if (argc > 3  &&  strncmp(argv[3], "-q", 2) == 0) {
 		printf("Quiet mode\n");
 		debug_flag = false;
 	}
