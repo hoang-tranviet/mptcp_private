@@ -27,7 +27,7 @@ NS_BR="ip netns exec nsBr "
 
 #set -x
 
-sysctl -w net.mptcp.mptcp_debug=1
+sysctl -w net.mptcp.mptcp_debug=0
 
 # temp disable additional sf to debug
 sysctl -w net.mptcp.mptcp_path_manager=fullmesh
@@ -137,18 +137,20 @@ $NS_BR ip link set up dev br
 
 #add delay and bw
 # for client-to-server traffic
-$NS_BR tc qdisc add dev ethBr1   root handle 1:0    netem delay 40ms loss 0.5%
-$NS_BR tc qdisc add dev ethBr1   parent 1:1 handle 10:    tbf rate 4Mbit latency 2ms burst 2000
+$NS_BR tc qdisc add dev ethBr1   root handle 1:0    netem delay 5ms #loss 0.5%
+$NS_BR tc qdisc add dev ethBr1   parent 1:1 handle 10:    tbf rate 4Mbit latency 1ms burst 80000 # bytes
+# `burst` is mandatory
+# from tc tbf: burst (in bytes) should be at least = rate (Mbits) / 1000 (Hz)
 
-$NS_BR tc qdisc add dev ethBr3   root handle 1:0    netem delay 40ms loss 0.5%
-$NS_BR tc qdisc add dev ethBr3   parent 1:1 handle 10:    tbf rate 4Mbit latency 2ms burst 2000
+$NS_BR tc qdisc add dev ethBr3   root handle 1:0    netem delay 5ms #$loss 0.5%
+$NS_BR tc qdisc add dev ethBr3   parent 1:1 handle 10:    tbf rate 40Mbit latency 1ms burst 80000
 
 # for server-to-client traffic
-$NS_BR tc qdisc add dev ethBr2   root handle 1:0    netem delay 40ms loss 0.5%
-$NS_BR tc qdisc add dev ethBr2   parent 1:1 handle 10:    tbf rate 4Mbit latency 2ms burst 2000
+$NS_BR tc qdisc add dev ethBr2   root handle 1:0    netem delay 5ms #loss 0.5%
+$NS_BR tc qdisc add dev ethBr2   parent 1:1 handle 10:    tbf rate 4Mbit latency 1ms burst 80000
 
-$NS_BR tc qdisc add dev ethBr2   root handle 1:0    netem delay 40ms loss 0.5%
-$NS_BR tc qdisc add dev ethBr2   parent 1:1 handle 10:    tbf rate 4Mbit latency 2ms burst 2000
+$NS_BR tc qdisc add dev ethBr4   root handle 1:0    netem delay 5ms #loss 0.5%
+$NS_BR tc qdisc add dev ethBr4   parent 1:1 handle 10:    tbf rate 40Mbit latency 1ms burst 80000
 
 
 serverIP="10.1.1.1"
@@ -157,10 +159,10 @@ time=`date +%s`
 dump_server=$time+"-server.pcap"
 dump_client=$time+"-client.pcap"
 
-$NS1  tcpdump -i veth1 -w dump_1_server &
-$NS2  tcpdump -i veth2 -w dump_2_client &
-$NS1  tcpdump -i veth3 -w dump_3_server &
-$NS2  tcpdump -i veth4 -w dump_4_client &
+#$NS1  tcpdump -i veth1 -w dump_1_server tcp &
+#$NS2  tcpdump -i veth2 -w dump_2_client tcp &
+#$NS1  tcpdump -i veth3 -w dump_3_server tcp &
+#$NS2  tcpdump -i veth4 -w dump_4_client tcp &
 #$NS_BR  tcpdump -i ethBr1 -w dump_server_br &
 #$NS_BR  tcpdump -i ethBr2 -w dump_client_br &
 #$NS_BR  tcpdump -i br -w dump_br &
@@ -174,12 +176,14 @@ $NS2 ip route get $serverIP
 $NS2 traceroute $serverIP
 
 # to have enough TCP option space in third ACK
-$NS1 sysctl -w net.ipv4.tcp_timestamps=0
-$NS2 sysctl -w net.ipv4.tcp_timestamps=0
+#$NS1 sysctl -w net.ipv4.tcp_timestamps=0
+#$NS2 sysctl -w net.ipv4.tcp_timestamps=0
 
 # client will self-terminate in (-m) seconds
-$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 1  -o /dev/null
+$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 40  -o /dev/null
 
+$NS_BR tc -s qdisc show dev ethBr1
+$NS_BR tc -s qdisc show dev ethBr3
 pkill tcpdump
 pkill tcpdump
 pkill tcpdump
