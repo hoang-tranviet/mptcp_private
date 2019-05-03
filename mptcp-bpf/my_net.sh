@@ -131,18 +131,18 @@ $NS_BR ip link set up dev br
 
 #add delay and bw
 # for client-to-server traffic
-$NS_BR tc qdisc add dev ethBr1   root handle 1:0    netem delay 40ms loss 0.5%
-$NS_BR tc qdisc add dev ethBr1   parent 1:1 handle 10:    tbf rate 40Mbit latency 2ms burst 10000
+$NS_BR tc qdisc add dev ethBr1   root handle 1:0    netem delay 5ms # loss 0.5%
+$NS_BR tc qdisc add dev ethBr1   parent 1:1 handle 10:    tbf rate 40Mbit latency 1ms burst 80000
 
-$NS_BR tc qdisc add dev ethBr3   root handle 1:0    netem delay 40ms loss 0.5%
-$NS_BR tc qdisc add dev ethBr3   parent 1:1 handle 10:    tbf rate 40Mbit latency 2ms burst 10000
+$NS_BR tc qdisc add dev ethBr3   root handle 1:0    netem delay 5ms # loss 0.5%
+$NS_BR tc qdisc add dev ethBr3   parent 1:1 handle 10:    tbf rate 40Mbit latency 1ms burst 80000
 
 # for server-to-client traffic
-$NS_BR tc qdisc add dev ethBr2   root handle 1:0    netem delay 40ms loss 0.5%
-$NS_BR tc qdisc add dev ethBr2   parent 1:1 handle 10:    tbf rate 40Mbit latency 2ms burst 10000
+$NS_BR tc qdisc add dev ethBr2   root handle 1:0    netem delay 5ms # loss 0.5%
+$NS_BR tc qdisc add dev ethBr2   parent 1:1 handle 10:    tbf rate 40Mbit latency 1ms burst 80000
 
-$NS_BR tc qdisc add dev ethBr2   root handle 1:0    netem delay 40ms loss 0.5%
-$NS_BR tc qdisc add dev ethBr2   parent 1:1 handle 10:    tbf rate 40Mbit latency 2ms burst 10000
+$NS_BR tc qdisc add dev ethBr4   root handle 1:0    netem delay 5ms # loss 0.5%
+$NS_BR tc qdisc add dev ethBr4   parent 1:1 handle 10:    tbf rate 40Mbit latency 1ms burst 80000
 
 
 serverIP="10.1.1.1"
