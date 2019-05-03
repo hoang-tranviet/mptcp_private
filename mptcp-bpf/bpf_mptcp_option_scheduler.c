@@ -15,9 +15,8 @@
 #define DEBUG 1
 
 struct bpf_map_def SEC("maps") sched_map = {
-	//.type = BPF_MAP_TYPE_HASH,
-	//.type = BPF_MAP_TYPE_PERCPU_ARRAY,
-	.type = BPF_MAP_TYPE_PERCPU_HASH,
+	.type = BPF_MAP_TYPE_HASH,
+	//.type = BPF_MAP_TYPE_PERCPU_HASH,	/* there will be race! */
 	.key_size = sizeof(__u32),
 	.value_size = SCHED_LENGTH,
 	.max_entries = 5,
@@ -34,10 +33,10 @@ static inline void init_map()
 	char c[]="blest";
 	char d[]="rr\0";
 
-	bpf_map_update_elem(&sched_map, &key0, a, BPF_ANY);
-	bpf_map_update_elem(&sched_map, &key1, b, BPF_ANY);
-	bpf_map_update_elem(&sched_map, &key2, c, BPF_ANY);
-	bpf_map_update_elem(&sched_map, &key3, d, BPF_ANY);
+	bpf_map_update_elem(&sched_map, &key0, a, BPF_NOEXIST);
+	bpf_map_update_elem(&sched_map, &key1, b, BPF_NOEXIST);
+	bpf_map_update_elem(&sched_map, &key2, c, BPF_NOEXIST);
+	bpf_map_update_elem(&sched_map, &key3, d, BPF_NOEXIST);
 }
 
 int _version SEC("version") = 1;
@@ -54,7 +53,7 @@ struct mptcp_option mp_opt = {
         .len = 4,
         .subtype = 14,
         .rsv = 0,
-        .data = 0x00, // id
+        .data = 0x03, // id
 };
 
 
