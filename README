@@ -5,6 +5,10 @@ To run the test negotiating MPTCP scheduler:
 
     make && sudo ./test_mptcp_sched_user bpf_mptcp_option_scheduler.o ./my_net_red_scheduler.sh -q
 
+To run the test capping bandwidth on a subflow:
+
+    make && sudo ./test_mptcp_user bpf_mptcp_cap_bw_kern.o ./my_net_cap_bw.sh -q
+
 
 Linux kernel
 ============
