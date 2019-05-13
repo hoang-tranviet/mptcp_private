@@ -3772,9 +3772,8 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 			case TCP_BPF_SNDCWND_CLAMP:
 				if (val <= 0) {
 					ret = -EINVAL;
-				break;
+					break;
 				}
-				if (mptcp(tp))	pr_err("setsockopt on mptcp socket\n");
 				tp->snd_cwnd_clamp = val;
 				tp->snd_ssthresh = val;
 				break;
