@@ -1,3 +1,11 @@
+MPTCP-BPF
+=========
+
+To run the test negotiating MPTCP scheduler:
+
+    make && sudo ./test_mptcp_sched_user bpf_mptcp_option_scheduler.o ./my_net_red_scheduler.sh -q
+
+
 Linux kernel
 ============
 
