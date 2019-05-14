@@ -28,6 +28,7 @@ NS_BR="ip netns exec nsBr "
 set -x
 
 sysctl -w net.mptcp.mptcp_debug=0
+sysctl -w net.ipv4.tcp_cong=cubic
 sysctl -w net.mptcp.mptcp_path_manager=fullmesh
 
 # Clean
@@ -131,18 +132,18 @@ $NS_BR ip link set up dev br
 
 #add delay and bw
 # for client-to-server traffic
-$NS_BR tc qdisc add dev ethBr1   root handle 1:0    netem delay 5ms
-$NS_BR tc qdisc add dev ethBr1   parent 1:1 handle 10:    tbf rate 40Mbit latency 1ms burst 80000
+$NS_BR tc qdisc add dev ethBr1   root handle 1:0    netem delay 20ms
+$NS_BR tc qdisc add dev ethBr1   parent 1:1 handle 10:    tbf rate 20Mbit latency 20ms burst 40kb #minburst 1540
 
-$NS_BR tc qdisc add dev ethBr3   root handle 1:0    netem delay 5ms
-$NS_BR tc qdisc add dev ethBr3   parent 1:1 handle 10:    tbf rate 40Mbit latency 1ms burst 80000
+$NS_BR tc qdisc add dev ethBr3   root handle 1:0    netem delay 20ms
+$NS_BR tc qdisc add dev ethBr3   parent 1:1 handle 10:    tbf rate 20Mbit latency 20ms burst 40kb #minburst 1540
 
 # for server-to-client traffic
-$NS_BR tc qdisc add dev ethBr2   root handle 1:0    netem delay 5ms
-$NS_BR tc qdisc add dev ethBr2   parent 1:1 handle 10:    tbf rate 40Mbit latency 1ms burst 80000
+$NS_BR tc qdisc add dev ethBr2   root handle 1:0    netem delay 20ms
+$NS_BR tc qdisc add dev ethBr2   parent 1:1 handle 10:    tbf rate 20Mbit latency 20ms burst 40kb #minburst 1540
 
-$NS_BR tc qdisc add dev ethBr4   root handle 1:0    netem delay 5ms
-$NS_BR tc qdisc add dev ethBr4   parent 1:1 handle 10:    tbf rate 40Mbit latency 1ms burst 80000
+$NS_BR tc qdisc add dev ethBr4   root handle 1:0    netem delay 20ms
+$NS_BR tc qdisc add dev ethBr4   parent 1:1 handle 10:    tbf rate 20Mbit latency 20ms burst 40kb #minburst 1540
 
 
 serverIP="10.1.1.1"
