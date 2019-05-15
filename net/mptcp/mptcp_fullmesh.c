@@ -491,10 +491,7 @@ next_subflow:
 
 		loc.addr.s_addr = inet_sk(meta_sk)->inet_saddr;
 		loc.loc4_id = 0;
-		if (mpcb->backup_sfs_mode)
-			loc.low_prio = 1;
-		else
-			loc.low_prio = 0;
+		loc.low_prio = 0;
 		loc.if_idx = mpcb->master_sk->sk_bound_dev_if;
 
 		rem.addr.s_addr = inet_sk(meta_sk)->inet_daddr;
@@ -525,6 +522,13 @@ next_subflow:
 			rem4.port = rem->port;
 			rem4.rem4_id = rem->rem4_id;
 
+			if (mpcb->backup_sfs_mode)
+				mptcp_local->locaddr4[i].low_prio = 1;
+			trace_printk("path: %d  %pI4 -> %pI4  low_prio = %d \n", i,
+				     &mptcp_local->locaddr4[i].addr.s_addr,
+				     &rem4.addr.s_addr,
+				     mptcp_local->locaddr4[i].low_prio );
+
 			/* If a route is not yet available then retry once */
 			if (mptcp_init4_subsockets(meta_sk, &mptcp_local->locaddr4[i],
 						   &rem4) == -ENETUNREACH)
@@ -544,10 +548,7 @@ next_subflow:
 
 			loc.addr = inet6_sk(meta_sk)->saddr;
 			loc.loc6_id = 0;
-			if (mpcb->backup_sfs_mode)
-				loc.low_prio = 1;
-			else
-				loc.low_prio = 0;
+			loc.low_prio = 0;
 			loc.if_idx = mpcb->master_sk->sk_bound_dev_if;
 
 			rem.addr = meta_sk->sk_v6_daddr;
