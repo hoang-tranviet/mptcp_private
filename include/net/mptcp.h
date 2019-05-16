@@ -290,9 +290,8 @@ struct mptcp_cb {
 		passive_close:1,
 		snd_hiseq_index:1, /* Index in snd_high_order of snd_nxt */
 		rcv_hiseq_index:1, /* Index in rcv_high_order of rcv_nxt */
-		backup_sfs_mode:1; /* Joined sfs will not be used until we activate them.
-				      This flag should be set at the beginning of mptcp connection
-				      and will not be changed even after backup sfs are activated */
+		backup_sfs_mode:1; /* If enabled, client will set the backup
+				      bit in all outgoing MP_JOIN SYNs */
 
 
 #define MPTCP_SCHED_DATA_SIZE 8
