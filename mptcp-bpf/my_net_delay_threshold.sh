@@ -28,7 +28,7 @@ NS_BR="ip netns exec nsBr "
 #set -x
 
 sysctl -w net.mptcp.mptcp_enabled=1
-sysctl -w net.mptcp.mptcp_debug=0
+sysctl -w net.mptcp.mptcp_debug=1
 
 # temp disable additional sf to debug
 sysctl -w net.mptcp.mptcp_path_manager=fullmesh
@@ -167,7 +167,9 @@ $NS1   tcpdump -i any   -w dump_server   tcp &
 $NS2   tcpdump -i any   -w dump_client   tcp &
 
 
-$NS1  python3 -m http.server 80 &
+# make sure that we set limit-rate to 50K in nginx
+sudo nginx -s stop
+$NS1  sudo nginx
 
 $NS2 ip route get $serverIP
 $NS2 traceroute $serverIP
@@ -175,7 +177,9 @@ $NS2 traceroute $serverIP
 sleep 1
 
 # client will self-terminate in (-m) seconds
-$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 21  -o /dev/null &
+# do NOT use --limit-rate on the receiver!
+# curl will delay the ACK --> increase RTT
+$NS2  curl $serverIP:$serverPort/file.txt  -m 21  -o /dev/null &
 
 sleep 10
 # increase the delay to 100 ms
