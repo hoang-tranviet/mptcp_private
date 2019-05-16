@@ -9,6 +9,9 @@ To run the test capping bandwidth on a subflow:
 
     make && sudo ./test_mptcp_user bpf_mptcp_cap_bw_kern.o ./my_net_cap_bw.sh -q
 
+To run the test with delay-based priority option:
+
+    make && sudo ./test_mptcp_user bpf_mptcp_priority_kern.o ./my_net_delay_threshold.sh
 
 Linux kernel
 ============
