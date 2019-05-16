@@ -40,6 +40,9 @@ static inline int should_write()
 		return 0;
 }
 
+#define DEBUG 0
+
+
 #define bswap_32(x) ((unsigned int)__builtin_bswap32(x))
 
 #define MP_NEW_PRIO 11
@@ -106,13 +109,10 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		if (should_write() &&
 		   (skops->args[1] + option_len <= 40)) {
 			rv = option_len;
-			char fmt4[] = "BPF_TCP_OPTIONS_SIZE_CALC \
-					\t original:%d extend:%d bytes more\n";
-			bpf_trace_printk(fmt4, sizeof(fmt4), skops->args[1], option_len);
 			break;
 		}
-		char fmt00[] = "ignore write\n";
-		bpf_trace_printk(fmt00, sizeof(fmt00));
+		//char fmt00[] = "ignore write\n";
+		//bpf_trace_printk(fmt00, sizeof(fmt00));
 		rv = 0;
 		break;
 		}
@@ -125,11 +125,12 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 				.len = 4,
 				.subtype = MP_NEW_PRIO,
 				.flag = DELAY_REQUEST,
-				.data = 0x05,	// in ms
+				.data = 80,	// in ms
 			};
-			char fmt3[] = "BPF_MPTCP_OPTIONS_WRITE \n";
-			bpf_trace_printk(fmt3, sizeof(fmt3));
-			// skops->reply_long = mp_opt;
+			if (DEBUG) {
+				char fmt3[] = "BPF_MPTCP_OPTIONS_WRITE \n";
+				bpf_trace_printk(fmt3, sizeof(fmt3));
+			}
 			memcpy(&option_buffer, &mp_opt, sizeof(int));
 			rv = option_buffer;
 			break;
@@ -142,25 +143,30 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		unsigned int op;
 		unsigned int value;
 
-		/* This is on subflow or meta socket? */
-		rv = bpf_getsockopt(skops, IPPROTO_TCP,
-					    MPTCP_RTT_THRESHOLD,
-					    &value, sizeof(value));
-		char fmt11[] = "RTT threshold = %d \n";
-		bpf_trace_printk(fmt11, sizeof(fmt11), value);
-
 		/* get the parsed option, swap to little-endian */
 		unsigned int option = bswap_32(skops->args[2]);
-		char fmt10[] = "BPF_MPTCP_PARSE_OPTIONS: %d, %d, %x\n";
-		bpf_trace_printk(fmt10, sizeof(fmt10),  skops->args[0], skops->args[1],
-							option);
+
+		if (DEBUG) {
+			/* This is on subflow or meta socket? */
+			rv = bpf_getsockopt(skops, IPPROTO_TCP,
+						    MPTCP_RTT_THRESHOLD,
+						    &value, sizeof(value));
+			char fmt11[] = "RTT threshold = %d \n";
+			bpf_trace_printk(fmt11, sizeof(fmt11), value);
+
+			char fmt10[] = "BPF_MPTCP_PARSE_OPTIONS: %d, %d, %x\n";
+			bpf_trace_printk(fmt10, sizeof(fmt10),  skops->args[0], skops->args[1],
+								option);
+		}
 		unsigned int op_code = (option & 0x0000F000) >> 12;
 		unsigned int flags   = (option & 0x00000F00) >> 8;
 
 		/* Keep the last 8 bits */
 		value = option & 0x000000FF;
-		char fmt12[] = "op_code: %u flags: %x, \t value: %d \n";
-		bpf_trace_printk(fmt12, sizeof(fmt12), op_code, flags, value);
+		if (DEBUG) {
+			char fmt12[] = "op_code: %u flags: %x, \t value: %d \n";
+			bpf_trace_printk(fmt12, sizeof(fmt12), op_code, flags, value);
+		}
 
 		if (op_code != MP_NEW_PRIO)
 			break;
@@ -173,9 +179,12 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		rv = bpf_setsockopt(skops, IPPROTO_TCP,
 					    op, &value, sizeof(value));
 
-		rv = bpf_getsockopt(skops, IPPROTO_TCP,
-					    op, &value, sizeof(value));
-		bpf_trace_printk(fmt11, sizeof(fmt11), value);
+		if (DEBUG) {
+			rv = bpf_getsockopt(skops, IPPROTO_TCP,
+						    op, &value, sizeof(value));
+			char fmt11[] = "RTT threshold = %d \n";
+			bpf_trace_printk(fmt11, sizeof(fmt11), value);
+		}
 		break;
 		}
 	default:
