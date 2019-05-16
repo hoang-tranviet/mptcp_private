@@ -138,12 +138,12 @@ $NS_BR ip link set up dev br
 
 # path 1-2, client-to-server
 $NS_BR tc qdisc add dev ethBr2   root handle 1:0    netem delay 5ms  #loss 0.5%
-$NS_BR tc qdisc add dev ethBr2   parent 1:0  tbf rate 2Mbit latency 1ms burst 4000
+#$NS_BR tc qdisc add dev ethBr2   parent 1:0  tbf rate 2Mbit latency 1ms burst 4000
 
 
 # path 3-4, client-to-server
 $NS_BR tc qdisc add dev ethBr4   root handle 1:0    netem delay 5ms  #loss 0.5%
-$NS_BR tc qdisc add dev ethBr4   parent 1:0  tbf rate 2Mbit latency 1ms burst 4000
+#$NS_BR tc qdisc add dev ethBr4   parent 1:0  tbf rate 2Mbit latency 1ms burst 4000
 
 
 # path 2-1, server-to-client
