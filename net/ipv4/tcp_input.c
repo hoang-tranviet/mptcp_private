@@ -3150,7 +3150,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, u32 prior_fack,
 					ca_rtt_us, sack->rate);
 
 
-	if (mptcp(tp) && is_meta_tp(tp) && tp->mpcb->server_side) {
+	if (mptcp(tp) && is_master_tp(tp) && tp->mpcb->server_side) {
 		int rtt = tp->srtt_us / 8000;
 		mptcp_debug("(server) rtt: %d ms\n", rtt);
 
@@ -3160,10 +3160,13 @@ static int tcp_clean_rtx_queue(struct sock *sk, u32 prior_fack,
 
 			mptcp_for_each_sub(tp->mpcb, mptcp) {
 				struct sock *sk = mptcp_to_sock(mptcp);
-				struct tcp_sock *tp = tcp_sk(sk);
-				if (tp->mptcp->rcv_low_prio == 1) {
-					mptcp_debug("activating sf: %u\n", tp->mptcp->path_index);
-					tp->mptcp->rcv_low_prio = 0;
+				struct tcp_sock *atp = tcp_sk(sk);
+
+				/* activate the additional sfs and deactivate the master sf*/
+				if (atp->mptcp->rcv_low_prio == 1 && !is_master_tp(atp)) {
+					mptcp_debug("activating sf: %u\n", atp->mptcp->path_index);
+					atp->mptcp->rcv_low_prio = 0;
+					tp->mptcp->rcv_low_prio = 1;
 				}
 			}
 		}
