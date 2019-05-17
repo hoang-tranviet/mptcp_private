@@ -167,6 +167,7 @@ $NS2   tcpdump -i any   -w dump_client   tcp &
 
 # make sure that we set limit-rate to 50K in nginx
 sudo nginx -s stop
+$NS1  sudo nginx -s stop
 $NS1  sudo nginx
 
 $NS2 ip route get $serverIP
@@ -196,4 +197,4 @@ pkill tcpdump
 pkill tcpdump
 pkill tcpdump
 
-pkill python3
+$NS1  sudo nginx -s stop
