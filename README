@@ -13,6 +13,11 @@ To run the test with delay-based priority option:
 
     make && sudo ./test_mptcp_user bpf_mptcp_priority_kern.o ./my_net_delay_threshold.sh
 
+
+Recreate subflow test:
+
+    make && sudo ./test_mptcp_user   bpf_mptcp_pm_recreate.o  ./my_net_pm_recreate.sh -q
+
 Linux kernel
 ============
 
