@@ -3,5 +3,6 @@ feature/
 fixdep
 test_mptcp_user
 test_mptcp_pm_user
+dump*
 
 /packetdrill_mptcp/
