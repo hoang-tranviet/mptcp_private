@@ -160,17 +160,20 @@ $NS1  python3 -m http.server 80 &
 sleep 1
 
 # client will self-terminate in (-m) seconds
-$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 5  --limit-rate 10K  -o /dev/null &
+$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 8  --limit-rate 10K  -o /dev/null &
 
 sleep 1
 
 # tcpkill sniffs ongoing TCP connections and inject RST to both sides
 # apt install dsniff
-$NS1 tcpkill -1 host  $clientIP
+for i in {1..5}; do
+$NS1 timeout 1 tcpkill -1  src $clientIP
+sleep 1
+done
 
 pkill tcpdump
 pkill tcpdump
 pkill tcpdump
 pkill tcpdump
 
-pkill python3
+$NS1  pkill python3
