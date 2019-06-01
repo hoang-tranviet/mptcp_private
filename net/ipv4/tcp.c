@@ -2086,6 +2086,11 @@ skip_copy:
 	tp->ops->cleanup_rbuf(sk, copied);
 
 	release_sock(sk);
+
+	/* Should be after or before release_sock()? */
+	if (BPF_SOCK_OPS_TEST_FLAG(tp, BPF_SOCK_OPS_USER_RECV_CB_FLAG))
+		tcp_call_bpf_2arg(sk, BPF_SOCK_OPS_USER_RECV, copied, copied);
+
 	return copied;
 
 out:

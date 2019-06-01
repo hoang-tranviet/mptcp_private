@@ -1125,7 +1125,8 @@ struct bpf_sock_ops {
 #define BPF_SOCK_OPS_STATE_CB_FLAG	(1<<2)
 #define BPF_SOCK_OPS_OPTION_WRITE_FLAG	(1<<3)	/* Flag to enable callback in
 						 * writing TCP/MPTCP option */
-#define BPF_SOCK_OPS_ALL_CB_FLAGS       0xf		/* Mask of all currently
+#define BPF_SOCK_OPS_USER_RECV_CB_FLAG	(1<<4)
+#define BPF_SOCK_OPS_ALL_CB_FLAGS       0x1f		/* Mask of all currently
 							 * supported cb flags
 							 */
 
@@ -1200,6 +1201,8 @@ enum {
 					 * Arg1: tcp_options_size */
 	BPF_MPTCP_OPTIONS_WRITE,	/* Called when writing MPTCP option */
 	BPF_MPTCP_PARSE_OPTIONS,	/* Called when parser sees new MPTCP option */
+
+	BPF_SOCK_OPS_USER_RECV,		/* Called when user receives new data */
 };
 
 /* List of TCP states. There is a build check in net/ipv4/tcp.c to detect
