@@ -3494,7 +3494,7 @@ exit:
 }
 
 
-/* normally (or always?) this helper runs in interrupt context,
+/* Normally, this helper runs in interrupt context,
  * since it is triggered by BPF program, which is event-based,
  * in turn is triggered typically when receiving a packet.
  *
@@ -3513,20 +3513,19 @@ BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 	struct mptcp_loc4 loc;
 	struct mptcp_rem4 rem;
 
-	trace_printk("bpf_open_subflow ... \n");
 	if ((!bpf_sock) || (!bpf_sock->sk)) {
-		trace_printk("bpf_open_subflow: sk is empty !!! \n");
+		trace_printk("sk is empty !!! \n");
 		return -EINVAL;
 	}
 
 	if (is_meta_sk(bpf_sock->sk))
-		trace_printk("bpf_sock attached the meta sk, expect subflow sk!");
-
-	meta_sk = mptcp_meta_sk(bpf_sock->sk);
+		meta_sk = bpf_sock->sk;
+	else
+		meta_sk = mptcp_meta_sk(bpf_sock->sk);
 	tp = tcp_sk(meta_sk);
 
 	if (!tp->mpcb) {
-		trace_printk("bpf_open_subflow: tp->mpcb is empty !!! \n");
+		trace_printk("tp->mpcb is empty !!! \n");
 		return -EINVAL;
 	}
 
@@ -3550,7 +3549,7 @@ BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 	trace_printk("subflow_work init\n");
 	pm_priv = kmalloc(sizeof(*pm_priv), GFP_ATOMIC);
 	if (!pm_priv) {
-		trace_printk("pm_priv is NULL !!!");
+		trace_printk("pm_priv is NULL !!!\n");
 		return -EINVAL;
 	}
 
@@ -3565,10 +3564,6 @@ BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 				sock_flag(meta_sk, SOCK_DEAD));
 		return -EINVAL;
 	}
-
-	INIT_WORK(&pm_priv->subflow_work, bpf_create_subflow_worker);
-
-	pm_priv->mpcb = tp->mpcb;
 
 	/* filling local address info */
 	if (loc_addr) {
@@ -3587,7 +3582,6 @@ BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 		loc.if_idx = 0;
 		trace_printk("no master sk?\n");
 	}
-	pm_priv->loc_addr = loc;
 
 	/* filling remote address info */
 	if (rem_addr) {
@@ -3599,13 +3593,27 @@ BPF_CALL_5(bpf_open_subflow, struct bpf_sock_ops_kern *, bpf_sock,
 	else if (inet_sk(meta_sk)->inet_daddr != 0) {
 		rem.addr.s_addr = inet_sk(meta_sk)->inet_daddr;
 		rem.port	= inet_sk(meta_sk)->inet_dport;
-		trace_printk("meta dest addr: %pI4  port %d %u %d \n",
-				&(rem.addr.s_addr), ntohs(rem.port), ntohs(rem.port),rem.port);
+		trace_printk("meta dest addr: %pI4  port %u %u\n",
+				&(rem.addr.s_addr), ntohs(rem.port), ntohs(rem.port));
 	}
 	rem.rem4_id = 0; // Default
+
+	trace_printk("in_task():%d, in_serving_softirq():%d \n",
+					in_task(), in_serving_softirq());
+
+	if (in_task()) {
+		trace_printk("in user context \n");
+		return mptcp_init4_subsockets(meta_sk, &loc, &rem);
+	} else
+		trace_printk("in softirq context \n");
+	INIT_WORK(&pm_priv->subflow_work, bpf_create_subflow_worker);
+
+	pm_priv->mpcb = tp->mpcb;
+	pm_priv->loc_addr = loc;
 	pm_priv->rem_addr = rem;
 
 	trace_printk("subflow_work: queuing\n");
+
 	/* queuing the work */
 	if (!work_pending(&pm_priv->subflow_work)) {
 		sock_hold(meta_sk);
