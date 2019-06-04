@@ -49,8 +49,10 @@ int bpf_testcb(struct bpf_sock_ops *skops)
 		break;
 	case BPF_SOCK_OPS_STATE_CB:
 	{
-		char state[] = "TCP state from: %d to %d %d\n";
-		bpf_trace_printk(state, sizeof(state), skops->args[0], skops->args[1], skops->args[2]);
+		/* skops->args[0] is negated (1 -> -1) in BPF context.
+		 * The state is correct in main kernel, before and after passing args.  Why? */
+		char state[] = "TCP state from: %d to %d\n";
+		bpf_trace_printk(state, sizeof(state), skops->args[0], skops->args[1]);
 		if (skops->args[1] == BPF_TCP_CLOSE) {
 			rv = bpf_open_subflow( skops,  NULL, 0,  NULL, 0);
 			char opensf[] = "recreate subflow: ret: %d\n";
