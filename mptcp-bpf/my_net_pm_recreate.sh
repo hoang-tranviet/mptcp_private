@@ -130,19 +130,23 @@ $NS_BR ip link set up dev ethBr4
 $NS_BR ip link set up dev br
 
 #add delay and bw
+# don't change these params as well as the sleep/timer, we may get different behaviors
+delay=20ms
+rate=1Mbit
+burst=6000
 # for client-to-server traffic
-$NS_BR tc qdisc add dev ethBr1   root handle 1:0    netem delay 5ms # loss 0.5%
-$NS_BR tc qdisc add dev ethBr1   parent 1:1 handle 10:    tbf rate 40Mbit latency 1ms burst 80000
+$NS_BR tc qdisc add dev ethBr1   root handle 1:0    netem delay $delay # loss 0.5%
+$NS_BR tc qdisc add dev ethBr1   parent 1:1 handle 10:    tbf rate $rate latency 1ms burst $burst
 
-$NS_BR tc qdisc add dev ethBr3   root handle 1:0    netem delay 5ms # loss 0.5%
-$NS_BR tc qdisc add dev ethBr3   parent 1:1 handle 10:    tbf rate 40Mbit latency 1ms burst 80000
+$NS_BR tc qdisc add dev ethBr3   root handle 1:0    netem delay $delay # loss 0.5%
+$NS_BR tc qdisc add dev ethBr3   parent 1:1 handle 10:    tbf rate $rate latency 1ms burst $burst
 
 # for server-to-client traffic
-$NS_BR tc qdisc add dev ethBr2   root handle 1:0    netem delay 5ms # loss 0.5%
-$NS_BR tc qdisc add dev ethBr2   parent 1:1 handle 10:    tbf rate 40Mbit latency 1ms burst 80000
+$NS_BR tc qdisc add dev ethBr2   root handle 1:0    netem delay $delay # loss 0.5%
+$NS_BR tc qdisc add dev ethBr2   parent 1:1 handle 10:    tbf rate $rate latency 1ms burst $burst
 
-$NS_BR tc qdisc add dev ethBr4   root handle 1:0    netem delay 5ms # loss 0.5%
-$NS_BR tc qdisc add dev ethBr4   parent 1:1 handle 10:    tbf rate 40Mbit latency 1ms burst 80000
+$NS_BR tc qdisc add dev ethBr4   root handle 1:0    netem delay $delay # loss 0.5%
+$NS_BR tc qdisc add dev ethBr4   parent 1:1 handle 10:    tbf rate $rate latency 1ms burst $burst
 
 
 serverIP="10.1.1.1"
@@ -160,15 +164,15 @@ $NS1  python3 -m http.server 80 &
 sleep 1
 
 # client will self-terminate in (-m) seconds
-$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 8  --limit-rate 10K  -o /dev/null &
+$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 22  -o /dev/null &
 
-sleep 1
+sleep 4
 
 # tcpkill sniffs ongoing TCP connections and inject RST to both sides
 # apt install dsniff
-for i in {1..5}; do
-$NS1 timeout 1 tcpkill -1  src $clientIP
-sleep 1
+for i in {1..3}; do
+$NS2 timeout 1 tcpkill -3  dst $clientIP &> /dev/null  &
+sleep 5
 done
 
 pkill tcpdump
