@@ -83,7 +83,7 @@ int main(int argc, char **argv)
 		script = argv[2];
 	} else {
 		printf("Please specify the bpf program object and script.\n"
-			" e.g.: ./test_mptcp_user  bpf_pm.o  ./drill_test.sh  [-q] \n");
+			" e.g.: ./load_pm_user  bpf_pm.o  ./drill_test.sh  [-q] \n");
 		exit(1);
 	}
 
@@ -150,6 +150,7 @@ int main(int argc, char **argv)
 
 
 	SYSTEM(script);
+	sleep(60);
 	if (debug_flag) {
 		printf("\n");
 		read_trace_pipe();
