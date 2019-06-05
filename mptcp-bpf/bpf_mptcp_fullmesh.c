@@ -42,7 +42,7 @@ struct bpf_map_def SEC("maps") add_addr_map = {
 };
 
 SEC("sockops")
-int bpf_testcb(struct bpf_sock_ops *skops)
+int bpf_fullmesh(struct bpf_sock_ops *skops)
 {
 	int rv = -1;
 	int op;
