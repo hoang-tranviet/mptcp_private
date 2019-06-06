@@ -352,6 +352,7 @@ int bpf_prog_array_copy(struct bpf_prog_array __rcu *old_array,
 		struct bpf_prog **_prog, *__prog;	\
 		struct bpf_prog_array *_array;		\
 		u32 _ret = 1;				\
+		int i = 0;				\
 		preempt_disable();			\
 		rcu_read_lock();			\
 		_array = rcu_dereference(array);	\
@@ -361,10 +362,12 @@ int bpf_prog_array_copy(struct bpf_prog_array __rcu *old_array,
 		while ((__prog = READ_ONCE(*_prog))) {	\
 			_ret &= func(__prog, ctx);	\
 			_prog++;			\
+			i++;				\
 		}					\
 _out:							\
 		rcu_read_unlock();			\
 		preempt_enable_no_resched();		\
+		if (i > 0) printk("progs ran:%d", i);	\
 		_ret;					\
 	 })
 
