@@ -187,10 +187,10 @@ int do_pin_fd(int fd, const char *name)
 
 	if (errno != EPERM || is_bpffs(dir)) {
 		p_err("can't pin the object (%s): %s", name, strerror(errno));
-		goto out_free;
 	}
 
 	/* Attempt to mount bpffs, then retry pinning. */
+	p_err("mount bpffs and retry pinning\n");
 	err = mnt_bpffs(dir, err_str, ERR_MAX_LEN);
 	if (!err) {
 		err = bpf_obj_pin(fd, name);
