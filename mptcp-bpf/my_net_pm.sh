@@ -27,7 +27,7 @@ NS_BR="ip netns exec nsBr "
 
 #set -x
 
-sysctl -w net.mptcp.mptcp_debug=0
+sysctl -w net.mptcp.mptcp_debug=1
 sysctl -w net.mptcp.mptcp_path_manager=default
 
 # Clean
@@ -147,32 +147,39 @@ $NS_BR tc qdisc add dev ethBr4   parent 1:1 handle 10:    tbf rate 40Mbit latenc
 
 serverIP="10.1.1.1"
 serverPort=80
-time=`date +%s`
-dump_server=$time+"-server.pcap"
-dump_client=$time+"-client.pcap"
 
-$NS1  tcpdump -i veth1 -w dump_1_server &
-$NS2  tcpdump -i veth2 -w dump_2_client &
-$NS1  tcpdump -i veth3 -w dump_3_server &
-
-
-$NS2 bpftool prog show
-$NS2 bpftool map show
-$NS2 ./load_pm_user  bpf_mptcp_fullmesh.o no_script.sh  &
+#$NS1  tcpdump -i veth1 -w dump_1_server &
+#$NS2  tcpdump -i veth2 -w dump_2_client &
+#$NS1  tcpdump -i veth3 -w dump_3_server &
 
 $NS1  python3 -m http.server 80 &
 
-sleep 1
+mkdir -p /tmp/cgroupv2
+mount -t cgroup2 none /tmp/cgroupv2
+mkdir -p /tmp/cgroupv2/foo
+echo $$ >> /tmp/cgroupv2/foo/cgroup.procs
+
+bpftool prog load  ./bpf_mptcp_fullmesh.o /sys/fs/bpf/fullmesh_prog
+bpftool cgroup attach /tmp/cgroupv2/foo sock_ops pinned /sys/fs/bpf/fullmesh_prog
+bpftool prog tracelog &
+
+
 $NS2 bpftool prog show
 $NS2 bpftool map show
+bpftool cgroup tree
 
+sleep 0.1
 # client will self-terminate in (-m) seconds
-$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 5  --limit-rate 10K  -o /dev/null
+$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 1  --limit-rate 10K  -o /dev/null
 
-pkill tcpdump
-pkill tcpdump
-pkill tcpdump
-pkill tcpdump
+#pkill tcpdump
+#pkill tcpdump
+#pkill tcpdump
+#pkill tcpdump
 
-pkill load_pm_user
+sleep 1
+bpftool cgroup detach /tmp/cgroupv2/foo sock_ops pinned /sys/fs/bpf/fullmesh_prog
+rm /sys/fs/bpf/fullmesh_prog
+
 pkill python3
+pkill bpftool
