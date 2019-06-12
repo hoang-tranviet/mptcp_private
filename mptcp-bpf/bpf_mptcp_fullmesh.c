@@ -17,7 +17,7 @@ struct bpf_map_def SEC("maps") sockaddr_map = {
 	.type = BPF_MAP_TYPE_ARRAY,
 	.key_size = sizeof(__u32),
 	.value_size = sizeof(struct sockaddr_in),
-	.max_entries = 100,
+	.max_entries = 10,
 };
 
 struct add_addrs {
