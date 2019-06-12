@@ -30,7 +30,7 @@ NS_BR="ip netns exec nsBr "
 sysctl -w net.mptcp.mptcp_debug=0
 sysctl -w net.mptcp.mptcp_path_manager=default
 
-# Clean
+clean() {
 $NS_BR ip link del ethBr1
 $NS_BR ip link del ethBr2
 $NS_BR ip link del ethBr3
@@ -44,6 +44,10 @@ $NS2 ip link del veth4
 ip netns del ns1
 ip netns del ns2
 ip netns del nsBr
+}
+
+clean &> /dev/null
+
 
 # Add namespaces
 ip netns add ns1
@@ -151,28 +155,26 @@ time=`date +%s`
 dump_server=$time+"-server.pcap"
 dump_client=$time+"-client.pcap"
 
-$NS1  tcpdump -i veth1 -w dump_1_server &
-$NS2  tcpdump -i veth2 -w dump_2_client &
-$NS1  tcpdump -i veth3 -w dump_3_server &
-
-
-$NS2 bpftool prog show
-$NS2 bpftool map show
-$NS2 ./load_pm_user  bpf_mptcp_fullmesh.o no_script.sh  &
-
 $NS1  python3 -m http.server 80 &
+
+#$NS1  tcpdump -i veth1 -w dump_1_server &
+#$NS2  tcpdump -i veth2 -w dump_2_client &
+#$NS1  tcpdump -i veth3 -w dump_3_server &
+sleep 0.5
+
+
+$NS2 ./load_pm_user  bpf_mptcp_fullmesh.o ./curl-2s-10KB.sh &
+#./load_pm_user  bpf_mptcp_fullmesh.o ./curl-2s-10KB.sh
 
 sleep 1
 $NS2 bpftool prog show
 $NS2 bpftool map show
+$NS2 bpftool cgroup tree
+sleep 2
 
-# client will self-terminate in (-m) seconds
-$NS2  curl $serverIP:$serverPort/vmlinux.o  -m 5  --limit-rate 10K  -o /dev/null
+#pkill tcpdump
+#pkill tcpdump
+#pkill tcpdump
 
-pkill tcpdump
-pkill tcpdump
-pkill tcpdump
-pkill tcpdump
-
-pkill load_pm_user
+#pkill load_pm_user
 pkill python3

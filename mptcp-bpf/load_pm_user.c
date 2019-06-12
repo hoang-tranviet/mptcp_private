@@ -150,7 +150,6 @@ int main(int argc, char **argv)
 
 
 	SYSTEM(script);
-	sleep(60);
 	if (debug_flag) {
 		printf("\n");
 		read_trace_pipe();
