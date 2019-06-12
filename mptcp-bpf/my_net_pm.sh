@@ -30,20 +30,23 @@ NS_BR="ip netns exec nsBr "
 sysctl -w net.mptcp.mptcp_debug=1
 sysctl -w net.mptcp.mptcp_path_manager=default
 
-# Clean
-$NS_BR ip link del ethBr1
-$NS_BR ip link del ethBr2
-$NS_BR ip link del ethBr3
-$NS_BR ip link del ethBr4
-$NS_BR ip link del dev br
-$NS1 ip link del veth1
-$NS2 ip link del veth2
-$NS1 ip link del veth3
-$NS2 ip link del veth4
+function clean() {
+	$NS_BR ip link del ethBr1
+	$NS_BR ip link del ethBr2
+	$NS_BR ip link del ethBr3
+	$NS_BR ip link del ethBr4
+	$NS_BR ip link del dev br
+	$NS1 ip link del veth1
+	$NS2 ip link del veth2
+	$NS1 ip link del veth3
+	$NS2 ip link del veth4
 
-ip netns del ns1
-ip netns del ns2
-ip netns del nsBr
+	ip netns del ns1
+	ip netns del ns2
+	ip netns del nsBr
+}
+
+clean  &> /dev/null
 
 # Add namespaces
 ip netns add ns1
