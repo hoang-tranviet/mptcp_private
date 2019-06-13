@@ -761,6 +761,13 @@ union bpf_attr {
  *     @bpf_sock_ops: pointer to bpf_sock_ops_kern struct
  *     @saddr: pointer to struct sockaddr (source address)
  *     @daddr: pointer to struct sockaddr (dest address)
+ *
+ * int bpf_mptcp_addr_signal(bpf_sock_ops, id, addr, addr_len)
+ *     Signal to send an MPTCP ADD_ADDR option.
+ *     @bpf_sock_ops: pointer to bpf_sock_ops_kern struct
+ *     @id: the id of add_addr to be sent
+ *     @addr: pointer to struct sockaddr (source address)
+ *     @addr_len: length of sockaddr structure
  */
 #define __BPF_FUNC_MAPPER(FN)		\
 	FN(unspec),			\
@@ -828,7 +835,8 @@ union bpf_attr {
 	FN(msg_cork_bytes),		\
 	FN(msg_pull_data),		\
 	FN(bind),			\
-	FN(open_subflow),
+	FN(open_subflow),		\
+	FN(mptcp_addr_signal),
 
 /* integer value in 'imm' field of BPF_CALL instruction selects which helper
  * function eBPF program intends to call

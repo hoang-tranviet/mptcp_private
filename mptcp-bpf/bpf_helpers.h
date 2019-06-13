@@ -68,6 +68,9 @@ static int (*bpf_xdp_adjust_meta)(void *ctx, int offset) =
 static int (*bpf_open_subflow)(void *ctx, void *saddr, int saddrlen,
 					  void *daddr, int daddrlen) =
 	(void *) BPF_FUNC_open_subflow;
+static int (*bpf_mptcp_addr_signal)(void *ctx, int id, void *addr, int addrlen,
+				    int flag_reset) =
+	(void *) BPF_FUNC_mptcp_addr_signal;
 static int (*bpf_setsockopt)(void *ctx, int level, int optname, void *optval,
 			     int optlen) =
 	(void *) BPF_FUNC_setsockopt;

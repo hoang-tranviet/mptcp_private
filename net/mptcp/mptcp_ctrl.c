@@ -1291,6 +1291,8 @@ static int mptcp_alloc_mpcb(struct sock *meta_sk, __u64 remote_key,
 
 	mptcp_mpcb_inherit_sockopts(meta_sk, master_sk);
 
+	mpcb->addr_signal = 1;
+
 	mpcb->orig_sk_rcvbuf = meta_sk->sk_rcvbuf;
 	mpcb->orig_sk_sndbuf = meta_sk->sk_sndbuf;
 	mpcb->orig_window_clamp = meta_tp->window_clamp;

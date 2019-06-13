@@ -3493,7 +3493,6 @@ exit:
 	trace_printk("init subsockets done, sock released \n");
 }
 
-
 /* Normally, this helper runs in interrupt context,
  * since it is triggered by BPF program, which is event-based,
  * in turn is triggered typically when receiving a packet.
@@ -3633,6 +3632,62 @@ static const struct bpf_func_proto bpf_open_subflow_proto = {
 	.arg3_type	= ARG_CONST_SIZE_OR_ZERO,
 	.arg4_type	= ARG_PTR_TO_MEM_OR_NULL,
 	.arg5_type	= ARG_CONST_SIZE_OR_ZERO,
+};
+
+
+BPF_CALL_5(bpf_mptcp_addr_signal, struct bpf_sock_ops_kern *, bpf_sock,
+	 u8, id,  struct sockaddr *, addr,  int, addr_len, int, flag_reset)
+{
+	struct sock *meta_sk;
+	struct tcp_sock *tp;
+	unsigned int *size;
+	struct tcp_out_options *opts;
+
+	if ((!bpf_sock) || (!bpf_sock->sk)) {
+		trace_printk("sk is empty !!! \n");
+		return -EINVAL;
+	}
+
+	if (is_meta_sk(bpf_sock->sk))
+		meta_sk = bpf_sock->sk;
+	else
+		meta_sk = mptcp_meta_sk(bpf_sock->sk);
+	tp = tcp_sk(meta_sk);
+
+	if (!tp->mpcb) {
+		trace_printk("tp->mpcb is NULL !!! \n");
+		return -EINVAL;
+	}
+
+	/* Reset this flag to avoid calling BPF-PM on every outgoing packet */
+	if (flag_reset)
+		tp->mpcb->addr_signal = 0;
+
+	size = tp->opts_size;
+	opts = tp->opts;
+	if (!size || !opts || !addr) {
+		trace_printk("size or opts or addr is NULL !!! \n");
+		return -EINVAL;
+	}
+	if (MAX_TCP_OPTION_SPACE - *size >= MPTCP_SUB_LEN_ADD_ADDR4_ALIGN) {
+		opts->options |= OPTION_MPTCP;
+		opts->mptcp_options |= OPTION_ADD_ADDR;
+		opts->add_addr4.addr_id = id;
+		opts->add_addr4.addr = ((struct sockaddr_in *) addr)->sin_addr;
+		opts->add_addr_v4 = 1;
+		*size += MPTCP_SUB_LEN_ADD_ADDR4_ALIGN;
+	}
+	return 0;
+}
+
+static const struct bpf_func_proto bpf_mptcp_addr_signal_proto = {
+	.func		= bpf_mptcp_addr_signal,
+	.gpl_only	= false,
+	.ret_type	= RET_INTEGER,
+	.arg1_type	= ARG_PTR_TO_CTX,
+	.arg2_type	= ARG_ANYTHING,
+	.arg3_type	= ARG_PTR_TO_MEM_OR_NULL,
+	.arg4_type	= ARG_CONST_SIZE_OR_ZERO,
 };
 
 
@@ -4211,6 +4266,8 @@ sock_ops_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 	switch (func_id) {
 	case BPF_FUNC_open_subflow:
 		return &bpf_open_subflow_proto;
+	case BPF_FUNC_mptcp_addr_signal:
+		return &bpf_mptcp_addr_signal_proto;
 	case BPF_FUNC_setsockopt:
 		return &bpf_setsockopt_proto;
 	case BPF_FUNC_getsockopt:
