@@ -1185,6 +1185,7 @@ enum {
 					 */
 	BPF_MPTCP_NEW_SESSION,		/* Called when a new MPTCP session is created */
 	BPF_MPTCP_FULLY_ESTABLISHED,	/* Called when an MPTCP session is fully established */
+	BPF_MPTCP_ADDR_SIGNAL,		/* Called BPF PM to prepare for sending ADD_ADDR */
 	BPF_MPTCP_ADD_RADDR,		/* Called when receiving an ADD_ADDR
 					 * Arg1: IPv4 ADDR
 					 * Arg2: port (optional)
