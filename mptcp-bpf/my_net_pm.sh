@@ -166,7 +166,6 @@ $NS1  python3 -m http.server 80 &
 sleep 0.5
 
 
-$NS2 ./curl-2s-10KB.sh
 $NS2 ./load_pm_user  bpf_mptcp_fullmesh.o ./curl-2s-10KB.sh &
 
 sleep 1
