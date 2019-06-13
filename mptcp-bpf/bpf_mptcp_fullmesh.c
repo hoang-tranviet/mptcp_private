@@ -82,7 +82,7 @@ int bpf_fullmesh(struct bpf_sock_ops *skops)
 
 		struct sockaddr_in *local_addr;
 
-		int key = 3;
+		int key = 1;
 		local_addr = bpf_map_lookup_elem(&sockaddr_map, &key);
 		if (!local_addr)
 			// without this check, verifier will reject
@@ -91,6 +91,8 @@ int bpf_fullmesh(struct bpf_sock_ops *skops)
 		bpf_trace_printk(lookup, sizeof(lookup),
 				 bpf_ntohs(local_addr->sin_port),
 				 bpf_ntohl(local_addr->sin_addr.s_addr));
+		if (local_addr->sin_addr.s_addr == 0)
+			return 0;
 
 		/* when passing (NULL, 0):
 		 * existing local and remote addresses will be used
