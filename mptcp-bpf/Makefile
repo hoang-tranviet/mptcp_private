@@ -19,6 +19,7 @@ LDLIBS += -lcap -lelf -lrt -lpthread
 TEST_GEN_PROGS = test_mptcp_user load_pm_user test_mptcp_sched_user
 
 TEST_GEN_FILES = bpf_mptcp_fullmesh.o bpf_mptcp_ndiffports.o \
+		 bpf_mptcp_pm_server.o \
 		 bpf_mptcp_pm_recreate.o \
 		 bpf_mptcp_pm_delay.o \
 		 bpf_mptcp_cap_bw_kern.o \

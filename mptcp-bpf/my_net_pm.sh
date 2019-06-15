@@ -158,7 +158,8 @@ time=`date +%s`
 dump_server=$time+"-server.pcap"
 dump_client=$time+"-client.pcap"
 
-$NS1  python3 -m http.server 80 &
+#$NS1  python3 -m http.server 80 &
+$NS1 ./load_pm_user  bpf_mptcp_pm_server.o ./python-http-server.sh -q &
 
 #$NS1  tcpdump -i veth1 -w dump_1_server &
 #$NS2  tcpdump -i veth2 -w dump_2_client &

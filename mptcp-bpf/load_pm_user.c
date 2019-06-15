@@ -127,7 +127,14 @@ int main(int argc, char **argv)
 	int key = 1;
 	struct ifaddrs  *addrs, *ifa;
 
-	map_fd = bpf_find_map(__func__, obj, "sockaddr_map");
+	if (strcmp(script, "./python-http-server.sh") == 0) {
+		printf("server script: %s\n", script);
+		map_fd = bpf_find_map(__func__, obj, "server_addr_map");
+	}
+	else {
+		printf("client script: %s\n", script);
+		map_fd = bpf_find_map(__func__, obj, "sockaddr_map");
+	}
 	if (map_fd < 0)
 		goto err;
 
