@@ -174,10 +174,12 @@ $NS2 bpftool prog show
 $NS2 bpftool map show
 $NS2 bpftool cgroup tree
 sleep 2
+bpftool prog tracelog &
 
 #pkill tcpdump
 #pkill tcpdump
 #pkill tcpdump
 
-#pkill load_pm_user
+pkill load_pm_user
 pkill python3
+pkill bpftool
