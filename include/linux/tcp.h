@@ -475,8 +475,6 @@ struct tcp_sock {
 	struct hlist_nulls_node tk_table;
 	u32		mptcp_loc_token;
 	u64		mptcp_loc_key;
-	unsigned int		*opts_size;
-	struct tcp_out_options  *opts;
 	char		mptcp_sched_name[MPTCP_SCHED_NAME_MAX];
 	char		mptcp_pm_name[MPTCP_PM_NAME_MAX];
 

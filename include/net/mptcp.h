@@ -196,6 +196,9 @@ struct mptcp_tcp_sock {
 	struct tcp_sock *tp;
 	u32	last_end_data_seq;
 
+	unsigned int		*opts_size;
+	struct tcp_out_options  *opts;
+
 	/* MP_JOIN subflow: timer for retransmitting the 3rd ack */
 	struct timer_list mptcp_ack_timer;
 

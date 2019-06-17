@@ -3638,7 +3638,6 @@ static const struct bpf_func_proto bpf_open_subflow_proto = {
 BPF_CALL_5(bpf_mptcp_addr_signal, struct bpf_sock_ops_kern *, bpf_sock,
 	 u8, id,  struct sockaddr *, addr,  int, addr_len, int, flag_reset)
 {
-	struct sock *meta_sk;
 	struct tcp_sock *tp;
 	unsigned int *size;
 	struct tcp_out_options *opts;
@@ -3649,10 +3648,9 @@ BPF_CALL_5(bpf_mptcp_addr_signal, struct bpf_sock_ops_kern *, bpf_sock,
 	}
 
 	if (is_meta_sk(bpf_sock->sk))
-		meta_sk = bpf_sock->sk;
-	else
-		meta_sk = mptcp_meta_sk(bpf_sock->sk);
-	tp = tcp_sk(meta_sk);
+		trace_printk("sk is meta_sk !!! \n");
+
+	tp = tcp_sk(bpf_sock->sk);
 
 	if (!tp->mpcb) {
 		trace_printk("tp->mpcb is NULL !!! \n");
@@ -3663,10 +3661,18 @@ BPF_CALL_5(bpf_mptcp_addr_signal, struct bpf_sock_ops_kern *, bpf_sock,
 	if (flag_reset)
 		tp->mpcb->addr_signal = 0;
 
-	size = tp->opts_size;
-	opts = tp->opts;
-	if (!size || !opts || !addr) {
-		trace_printk("size or opts or addr is NULL !!! \n");
+	size = tp->mptcp->opts_size;
+	opts = tp->mptcp->opts;
+	if (!size) {
+		trace_printk("size is NULL !!! \n");
+		return -EINVAL;
+	}
+	if (!opts) {
+		trace_printk("opts is NULL !!! \n");
+		return -EINVAL;
+	}
+	if (!addr) {
+		trace_printk("addr is NULL !!! \n");
 		return -EINVAL;
 	}
 	if (MAX_TCP_OPTION_SPACE - *size >= MPTCP_SUB_LEN_ADD_ADDR4_ALIGN) {

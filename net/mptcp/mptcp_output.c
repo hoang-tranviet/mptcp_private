@@ -1121,12 +1121,16 @@ void mptcp_established_options(struct sock *sk, struct sk_buff *skb,
 		*size += MPTCP_SUB_LEN_FAIL;
 	}
 
-	if (unlikely(mpcb->addr_signal) && mpcb->pm_ops->addr_signal &&
-	    mpcb->mptcp_ver < MPTCP_VERSION_1) {
-		tp->opts = opts;
-		tp->opts_size = size;
-		tcp_call_bpf_2arg(sk, BPF_MPTCP_ADDR_SIGNAL, 0, *size);
-		mpcb->pm_ops->addr_signal(sk, size, opts, skb);
+	if (unlikely(mpcb->addr_signal) && mpcb->mptcp_ver < MPTCP_VERSION_1
+	&& (MAX_TCP_OPTION_SPACE - *size >= MPTCP_SUB_LEN_ADD_ADDR4_ALIGN)) {
+
+		if (mpcb->pm_ops->addr_signal) {
+			mpcb->pm_ops->addr_signal(sk, size, opts, skb);
+		} else {
+			tp->mptcp->opts = opts;
+			tp->mptcp->opts_size = (u32 *) size;
+			tcp_call_bpf_2arg(sk, BPF_MPTCP_ADDR_SIGNAL, 0, *size);
+		}
 	}
 
 	if (unlikely(tp->mptcp->send_mp_prio) &&
