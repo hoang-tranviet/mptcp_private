@@ -367,7 +367,7 @@ int bpf_prog_array_copy(struct bpf_prog_array __rcu *old_array,
 _out:							\
 		rcu_read_unlock();			\
 		preempt_enable_no_resched();		\
-		if (i > 0) printk("progs ran:%d", i);	\
+		if (i > 0) trace_printk("progs ran:%d", i);	\
 		_ret;					\
 	 })
 
