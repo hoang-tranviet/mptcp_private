@@ -1,6 +1,11 @@
 MPTCP-BPF
 =========
 
+All bpf programs and scripts are in mptcp-bpf/:
+
+    cd mptcp-bpf/
+
+
 To run the test negotiating MPTCP scheduler:
 
     make && sudo ./test_mptcp_sched_user bpf_mptcp_option_scheduler.o ./my_net_red_scheduler.sh -q
@@ -17,6 +22,11 @@ To run the test with delay-based priority option:
 Recreate subflow test:
 
     make && sudo ./test_mptcp_user   bpf_mptcp_pm_recreate.o  ./my_net_pm_recreate.sh -q
+
+
+Fullmesh netns test:
+
+   make && sudo ./my_net_pm.sh
 
 Linux kernel
 ============
