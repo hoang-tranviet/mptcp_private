@@ -94,16 +94,20 @@ int main(int argc, char **argv)
 
 	printf("loading bpf program: %s\n", file);
 
-	dir = "/tmp/cgroupv2/foo";
+	if (strcmp(script, "./python-http-server.sh") == 0)
+		dir = "/tmp/cgroupv2/ser";
+	else
+		dir = "/tmp/cgroupv2/cli";
 
 	if (stat(dir, &buffer) != 0) {
 		printf("stat not found, creating cgroup \n");
 		SYSTEM("mkdir -p /tmp/cgroupv2");
 		SYSTEM("mount -t cgroup2 none /tmp/cgroupv2");
-		SYSTEM("mkdir -p /tmp/cgroupv2/foo");
+		sprintf(cmd, "mkdir -p %s", dir);
+		SYSTEM(cmd);
 	}
 	pid = (int) getpid();
-	sprintf(cmd, "echo %d >> /tmp/cgroupv2/foo/cgroup.procs", pid);
+	sprintf(cmd, "echo %d >> %s/cgroup.procs", pid, dir);
 	SYSTEM(cmd);
 
 
