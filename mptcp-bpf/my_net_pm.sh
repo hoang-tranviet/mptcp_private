@@ -161,12 +161,13 @@ dump_client=$time+"-client.pcap"
 #$NS1  python3 -m http.server 80 &
 $NS1 ./load_pm_user  bpf_mptcp_pm_server.o ./python-http-server.sh -q &
 
-#$NS1  tcpdump -i veth1 -w dump_1_server &
-#$NS2  tcpdump -i veth2 -w dump_2_client &
-#$NS1  tcpdump -i veth3 -w dump_3_server &
+$NS1  tcpdump -i veth1 -w dump_1_server &
+$NS2  tcpdump -i veth2 -w dump_2_client &
+$NS1  tcpdump -i veth3 -w dump_3_server &
 sleep 0.5
 
 
+#$NS2 ./curl-2s-10KB.sh
 $NS2 ./load_pm_user  bpf_mptcp_fullmesh.o ./curl-2s-10KB.sh &
 
 sleep 1
@@ -176,7 +177,7 @@ $NS2 bpftool cgroup tree
 sleep 2
 bpftool prog tracelog &
 
-#pkill tcpdump
+pkill tcpdump
 #pkill tcpdump
 #pkill tcpdump
 
