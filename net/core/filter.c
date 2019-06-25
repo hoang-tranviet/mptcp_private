@@ -3882,6 +3882,61 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 				ret = -EINVAL;
 			}
 		}
+	} else if (level == SOL_MPTCP &&
+		   sk->sk_prot->setsockopt == tcp_setsockopt) {
+
+		struct sock *meta_sk = mptcp_meta_sk(sk);
+		struct inet_connection_sock *meta_icsk = inet_csk(meta_sk);
+		struct tcp_sock *meta_tp = tcp_sk(meta_sk);
+		int valbool;
+
+		val = *((int *)optval);
+		valbool= val ? 1 : 0;
+
+		/* during handshake, master sk is not yet upgraded to meta_sk */
+		if (!meta_icsk)
+			meta_icsk = inet_csk(sk);
+
+		switch (optname) {
+		/* we may just reuse SO_KEEPALIVE with some new vals,
+		 * but may break existing keepalive apps that use this new val */
+		case MPTCP_KILL_ON_IDLE:
+			if (meta_sk->sk_prot->keepalive)
+				meta_sk->sk_prot->keepalive(meta_sk, valbool);
+			if (valbool)
+				sock_set_flag(meta_sk, SOCK_KILL_ON_IDLE);
+			else
+				sock_reset_flag(meta_sk, SOCK_KILL_ON_IDLE);
+			break;
+		case SO_KEEPALIVE:
+			if (meta_sk->sk_prot->keepalive)
+				meta_sk->sk_prot->keepalive(meta_sk, valbool);
+			if (valbool)
+				sock_set_flag(meta_sk, SOCK_KEEPOPEN);
+			else
+				sock_reset_flag(meta_sk, SOCK_KEEPOPEN);
+			break;
+		case TCP_KEEPIDLE:
+			if (val < 1 || val > MAX_TCP_KEEPIDLE)
+				ret = -EINVAL;
+			else {
+				meta_tp->keepalive_time = val * HZ;
+
+				if (sock_flag(meta_sk, SOCK_KEEPOPEN) &&
+				    !((1 << meta_sk->sk_state) & (TCPF_CLOSE | TCPF_LISTEN)))
+				{
+					u32 elapsed = keepalive_time_elapsed(meta_tp);
+					if (meta_tp->keepalive_time > elapsed)
+						elapsed = meta_tp->keepalive_time - elapsed;
+					else
+						elapsed = 0;
+					inet_csk_reset_keepalive_timer(meta_sk, elapsed);
+				}
+			}
+			break;
+		default:
+			ret = 0;
+		}
 #endif
 	} else {
 		ret = -EINVAL;
@@ -3959,6 +4014,28 @@ BPF_CALL_5(bpf_getsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 			break;
 		case TCP_BPF_USER_TIMEOUT:
 			*((int *)optval) = (int) icsk->icsk_user_timeout;
+			break;
+		default:
+			goto err_clear;
+		}
+	} else if (level == SOL_MPTCP) {
+		struct sock *meta_sk = mptcp_meta_sk(sk);
+		struct inet_connection_sock *meta_icsk = inet_csk(meta_sk);
+		struct tcp_sock *meta_tp = tcp_sk(meta_sk);
+
+		/* during handshake, master sk is not yet upgraded to meta_sk */
+		if (!meta_icsk)
+			meta_icsk = inet_csk(sk);
+
+		switch (optname) {
+		case MPTCP_KILL_ON_IDLE:
+			*((int *)optval) = sock_flag(meta_sk, SOCK_KILL_ON_IDLE);
+			break;
+		case SO_KEEPALIVE:
+			*((int *)optval) = sock_flag(meta_sk, SOCK_KEEPOPEN);
+			break;
+		case TCP_KEEPIDLE:
+			*((int *)optval) = keepalive_time_when(meta_tp) / HZ;
 			break;
 		default:
 			goto err_clear;
