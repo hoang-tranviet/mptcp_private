@@ -3826,6 +3826,7 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 		}
 		else {
 			struct tcp_sock *tp = tcp_sk(sk);
+			struct inet_connection_sock *icsk = inet_csk(sk);
 			if (optlen != sizeof(int))
 				return -EINVAL;
 
@@ -3870,6 +3871,13 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 				}
 				tp->mpcb->acked_bytes_threshold = val;
 				break;
+			case TCP_BPF_USER_TIMEOUT:
+				if (val <= 0) {
+					ret = -EINVAL;
+					break;
+				}
+				icsk->icsk_user_timeout = val;
+				break;
 			default:
 				ret = -EINVAL;
 			}
@@ -3902,11 +3910,12 @@ BPF_CALL_5(bpf_getsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 
 #ifdef CONFIG_INET
 	if (level == SOL_TCP && sk->sk_prot->getsockopt == tcp_getsockopt) {
+
+		struct inet_connection_sock *icsk = inet_csk(sk);
+
 		switch (optname) {
 		case TCP_CONGESTION:
 			{
-			struct inet_connection_sock *icsk = inet_csk(sk);
-
 			if (!icsk->icsk_ca_ops || optlen <= 1)
 				goto err_clear;
 			strncpy(optval, icsk->icsk_ca_ops->name, optlen);
@@ -3947,6 +3956,9 @@ BPF_CALL_5(bpf_getsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 				//trace_printk("not an mptcp sk!, sched: %s\n", optval);
 			}
 			optval[optlen - 1] = 0;
+			break;
+		case TCP_BPF_USER_TIMEOUT:
+			*((int *)optval) = (int) icsk->icsk_user_timeout;
 			break;
 		default:
 			goto err_clear;
