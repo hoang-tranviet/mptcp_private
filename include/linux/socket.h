@@ -338,6 +338,7 @@ struct ucred {
 #define SOL_NFC		280
 #define SOL_KCM		281
 #define SOL_TLS		282
+#define SOL_MPTCP	306
 
 /* IPX options */
 #define IPX_TYPE	1
