@@ -3882,6 +3882,24 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 				ret = -EINVAL;
 			}
 		}
+	} else if (level == SOL_MPTCP &&
+		   sk->sk_prot->setsockopt == tcp_setsockopt) {
+
+		struct sock *meta_sk = mptcp_meta_sk(sk);
+		struct inet_connection_sock *meta_icsk = inet_csk(meta_sk);
+
+		val = *((int *)optval);
+		/* during handshake, master sk is not yet upgraded to meta_sk */
+		if (!meta_icsk)
+			meta_icsk = inet_csk(sk);
+
+		if (optname == TCP_BPF_USER_TIMEOUT) {
+			if (val <= 0) {
+				ret = -EINVAL;
+				return ret;
+			}
+			meta_icsk->icsk_user_timeout = val;
+		}
 #endif
 	} else {
 		ret = -EINVAL;
@@ -3962,6 +3980,18 @@ BPF_CALL_5(bpf_getsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 			break;
 		default:
 			goto err_clear;
+		}
+	} else if (level == SOL_MPTCP) {
+		struct sock *meta_sk = mptcp_meta_sk(sk);
+		struct inet_connection_sock *meta_icsk = inet_csk(meta_sk);
+
+		/* during handshake, master sk is not yet upgraded to meta_sk */
+		if (!meta_icsk)
+			meta_icsk = inet_csk(sk);
+
+		if (optname == TCP_BPF_USER_TIMEOUT) {
+			*((int *)optval) = (int) meta_icsk->icsk_user_timeout;
+			return 0;
 		}
 	} else if (level == SOL_IP) {
 		struct inet_sock *inet = inet_sk(sk);
