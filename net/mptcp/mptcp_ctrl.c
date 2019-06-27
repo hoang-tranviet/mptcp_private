@@ -934,7 +934,7 @@ static void mptcp_mpcb_inherit_sockopts(struct sock *meta_sk, struct sock *maste
 	inet_csk(meta_sk)->icsk_accept_queue.rskq_defer_accept = 0;
 
 	/* Keepalives are handled entirely at the MPTCP-layer */
-	if (sock_flag(meta_sk, SOCK_KEEPOPEN)) {
+	if (sock_flag(meta_sk, SOCK_KEEPOPEN) || sock_flag(meta_sk, SOCK_KILL_ON_IDLE)) {
 		inet_csk_reset_keepalive_timer(meta_sk,
 					       keepalive_time_when(tcp_sk(meta_sk)));
 		sock_reset_flag(master_sk, SOCK_KEEPOPEN);
@@ -971,7 +971,7 @@ static void mptcp_sub_inherit_sockopts(const struct sock *meta_sk, struct sock *
 	tcp_sk(sub_sk)->nonagle = TCP_NAGLE_OFF|TCP_NAGLE_PUSH;
 
 	/* Keepalives are handled entirely at the MPTCP-layer */
-	if (sock_flag(sub_sk, SOCK_KEEPOPEN)) {
+	if (sock_flag(sub_sk, SOCK_KEEPOPEN) || sock_flag(meta_sk, SOCK_KILL_ON_IDLE)) {
 		sock_reset_flag(sub_sk, SOCK_KEEPOPEN);
 		inet_csk_delete_keepalive_timer(sub_sk);
 	}

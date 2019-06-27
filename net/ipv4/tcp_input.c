@@ -5603,7 +5603,7 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
 	 */
 	tp->lsndtime = tcp_jiffies32;
 
-	if (sock_flag(sk, SOCK_KEEPOPEN))
+	if (sock_flag(sk, SOCK_KEEPOPEN)||sock_flag(sk, SOCK_KILL_ON_IDLE))
 		inet_csk_reset_keepalive_timer(sk, keepalive_time_when(tp));
 
 	if (!tp->rx_opt.snd_wscale)
