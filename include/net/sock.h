@@ -779,6 +779,7 @@ enum sock_flags {
 	SOCK_SELECT_ERR_QUEUE, /* Wake select on error queue */
 	SOCK_RCU_FREE, /* wait rcu grace period in sk_destruct() */
 	SOCK_MPTCP, /* MPTCP set on this socket */
+	SOCK_KILL_ON_IDLE, /* MPTCP-socket, but could apply to TCP in future */
 };
 
 #define SK_FLAGS_TIMESTAMP ((1UL << SOCK_TIMESTAMP) | (1UL << SOCK_TIMESTAMPING_RX_SOFTWARE))

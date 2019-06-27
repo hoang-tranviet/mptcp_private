@@ -547,7 +547,7 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
 
 		newtp->urg_data = 0;
 
-		if (sock_flag(newsk, SOCK_KEEPOPEN))
+		if (sock_flag(newsk, SOCK_KEEPOPEN)||sock_flag(newsk, SOCK_KILL_ON_IDLE))
 			inet_csk_reset_keepalive_timer(newsk,
 						       keepalive_time_when(newtp));
 
