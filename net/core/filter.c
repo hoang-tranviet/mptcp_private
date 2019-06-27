@@ -3905,6 +3905,16 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 			}
 			meta_icsk->icsk_user_timeout = val;
 			break;
+		/* we may just reuse SO_KEEPALIVE with some new vals,
+		 * but may break existing keepalive apps that use this new val */
+		case MPTCP_KILL_ON_IDLE:
+			if (meta_sk->sk_prot->keepalive)
+				meta_sk->sk_prot->keepalive(meta_sk, valbool);
+			if (valbool)
+				sock_set_flag(meta_sk, SOCK_KILL_ON_IDLE);
+			else
+				sock_reset_flag(meta_sk, SOCK_KILL_ON_IDLE);
+			break;
 		case SO_KEEPALIVE:
 			if (meta_sk->sk_prot->keepalive)
 				meta_sk->sk_prot->keepalive(meta_sk, valbool);
@@ -4027,6 +4037,9 @@ BPF_CALL_5(bpf_getsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 		switch (optname) {
 		case TCP_BPF_USER_TIMEOUT:
 			*((int *)optval) = (int) meta_icsk->icsk_user_timeout;
+			break;
+		case MPTCP_KILL_ON_IDLE:
+			*((int *)optval) = sock_flag(meta_sk, SOCK_KILL_ON_IDLE);
 			break;
 		case SO_KEEPALIVE:
 			*((int *)optval) = sock_flag(meta_sk, SOCK_KEEPOPEN);
