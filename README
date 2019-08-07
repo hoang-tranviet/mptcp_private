@@ -23,6 +23,10 @@ Recreate subflow test:
 
     make && sudo ./test_mptcp_user   bpf_mptcp_pm_recreate.o  ./my_net_pm_recreate.sh -q
 
+Delaying subflow join:
+
+    sudo ./test_mptcp_user bpf_mptcp_pm_delay.o ./my_net_pm_delay.sh
+
 
 Fullmesh netns test:
 
