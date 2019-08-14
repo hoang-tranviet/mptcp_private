@@ -26,7 +26,8 @@ TEST_GEN_FILES = bpf_mptcp_fullmesh.o bpf_mptcp_ndiffports.o \
 		 bpf_mptcp_cap_bw_pacing.o \
 		 bpf_mptcp_priority_kern.o \
 		 bpf_mptcp_reinject_data_acks_kern.o \
-		 bpf_mptcp_option_scheduler.o
+		 bpf_mptcp_option_scheduler.o \
+		 bpf_mptcp_ito.o
 
 # Compile but not part of 'make run_tests'
 TEST_GEN_PROGS_EXTENDED = test_libbpf_open
