@@ -670,9 +670,25 @@ static void tcp_keepalive_timer (struct timer_list *t)
 	struct sock *sk = from_timer(sk, t, sk_timer);
 	struct inet_connection_sock *icsk = inet_csk(sk);
 	struct tcp_sock *tp = tcp_sk(sk);
-	struct sock *meta_sk = mptcp(tp) ? mptcp_meta_sk(sk) : sk;
-	struct mptcp_cb *mpcb = mptcp(tp) ? tcp_sk(meta_sk)->mpcb : tp->mpcb;
-	u32 elapsed;
+	struct sock *meta_sk;
+	struct mptcp_cb *mpcb;
+	u32 elapsed, last_sf_close_time = 0;
+	if (!sk)
+		return;
+
+	meta_sk = mptcp(tp) ? mptcp_meta_sk(sk) : sk;
+	if (mptcp(tp)){
+		mpcb = tcp_sk(meta_sk)->mpcb;
+		trace_printk("%s: subflow socket, tok %x\n",
+				__func__, mpcb->mptcp_loc_token);
+	}
+	if (is_meta_sk(meta_sk)){
+		mpcb = tp->mpcb;
+		trace_printk("%s: meta socket, tok %x\n",
+				__func__, mpcb->mptcp_loc_token);
+	}
+	if (mpcb)
+		last_sf_close_time = mpcb->last_sf_close_time;
 
 	/* Only process if socket is not in use. */
 	bh_lock_sock(meta_sk);
@@ -682,8 +698,8 @@ static void tcp_keepalive_timer (struct timer_list *t)
 		goto out;
 	}
 
-	if (sock_flag(sk, SOCK_KILL_ON_IDLE && mpcb->last_sf_close_time)) {
-		elapsed = tcp_jiffies32 - mpcb->last_sf_close_time;
+	if (sock_flag(sk, SOCK_KILL_ON_IDLE && last_sf_close_time)) {
+		elapsed = tcp_jiffies32 - last_sf_close_time;
 		mptcp_debug("inactivity for: %d s \n", elapsed);
 
 		if (elapsed > keepalive_time_when(tp)) {
