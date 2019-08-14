@@ -671,6 +671,7 @@ static void tcp_keepalive_timer (struct timer_list *t)
 	struct inet_connection_sock *icsk = inet_csk(sk);
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct sock *meta_sk = mptcp(tp) ? mptcp_meta_sk(sk) : sk;
+	struct mptcp_cb *mpcb = mptcp(tp) ? tcp_sk(meta_sk)->mpcb : tp->mpcb;
 	u32 elapsed;
 
 	/* Only process if socket is not in use. */
@@ -680,6 +681,17 @@ static void tcp_keepalive_timer (struct timer_list *t)
 		inet_csk_reset_keepalive_timer (sk, HZ/20);
 		goto out;
 	}
+
+	if (sock_flag(sk, SOCK_KILL_ON_IDLE && mpcb->last_sf_close_time)) {
+		elapsed = tcp_jiffies32 - mpcb->last_sf_close_time;
+		mptcp_debug("inactivity for: %d s \n", elapsed);
+
+		if (elapsed > keepalive_time_when(tp)) {
+			mptcp_close(meta_sk, 0);
+		}
+		goto out;
+	}
+
 
 	if (sk->sk_state == TCP_LISTEN) {
 		pr_err("Hmm... keepalive on a LISTEN ???\n");
@@ -731,8 +743,7 @@ static void tcp_keepalive_timer (struct timer_list *t)
 		/* If the TCP_USER_TIMEOUT option is enabled, use that
 		 * to determine when to timeout instead.
 		 */
-		if (sock_flag(sk, SOCK_KILL_ON_IDLE) ||
-		    (icsk->icsk_user_timeout != 0 &&
+		if ((icsk->icsk_user_timeout != 0 &&
 		    elapsed >= msecs_to_jiffies(icsk->icsk_user_timeout) &&
 		    icsk->icsk_probes_out > 0) ||
 		    (icsk->icsk_user_timeout == 0 &&
