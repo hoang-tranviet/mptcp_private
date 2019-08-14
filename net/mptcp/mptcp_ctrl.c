@@ -1293,6 +1293,8 @@ static int mptcp_alloc_mpcb(struct sock *meta_sk, __u64 remote_key,
 
 	mpcb->addr_signal = 1;
 
+	mpcb->last_sf_close_time = 0;
+
 	mpcb->orig_sk_rcvbuf = meta_sk->sk_rcvbuf;
 	mpcb->orig_sk_sndbuf = meta_sk->sk_sndbuf;
 	mpcb->orig_window_clamp = meta_tp->window_clamp;
@@ -1366,6 +1368,7 @@ int mptcp_add_sock(struct sock *meta_sk, struct sock *sk, u8 loc_id, u8 rem_id,
 		return -EPERM;
 	}
 
+
 	INIT_HLIST_NODE(&tp->mptcp->cb_list);
 
 	tp->mptcp->tp = tp;
@@ -1435,6 +1438,7 @@ int mptcp_add_sock(struct sock *meta_sk, struct sock *sk, u8 loc_id, u8 rem_id,
 			    &sk->sk_v6_daddr,
 			    ntohs(((struct inet_sock *)tp)->inet_dport));
 #endif
+	mpcb->last_sf_close_time = 0;
 
 	return 0;
 }
@@ -1455,9 +1459,12 @@ void mptcp_del_sock(struct sock *sk)
 	if (mpcb->pm_ops->delete_subflow)
 		mpcb->pm_ops->delete_subflow(sk);
 
-	mptcp_debug("%s: Removing subsock tok %#x pi:%d state %d is_meta? %d\n",
+	mptcp_debug("%s: Removing subsock tok %#x pi:%d state %d is_meta? %d  sf_count %d\n",
 		    __func__, mpcb->mptcp_loc_token, tp->mptcp->path_index,
-		    sk->sk_state, is_meta_sk(sk));
+		    sk->sk_state, is_meta_sk(sk), mptcp_subflow_count(mpcb));
+
+	if (mptcp_subflow_count(mpcb) <= 1)
+		mpcb->last_sf_close_time = tcp_jiffies32;
 
 	spin_lock(&mpcb->mpcb_list_lock);
 	hlist_del_init_rcu(&tp->mptcp->node);

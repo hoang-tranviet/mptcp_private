@@ -355,6 +355,7 @@ struct mptcp_cb {
 	int orig_sk_sndbuf;
 	u32 orig_window_clamp;
 
+	__u32 last_sf_close_time;
 	struct tcp_info	*master_info;
 
 	/* if current RTT reach it, other backup sf will become active */
