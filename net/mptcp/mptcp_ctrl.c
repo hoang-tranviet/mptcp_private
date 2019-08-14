@@ -1293,6 +1293,8 @@ static int mptcp_alloc_mpcb(struct sock *meta_sk, __u64 remote_key,
 
 	mpcb->addr_signal = 1;
 
+	mpcb->last_sf_close_time = INITIAL_JIFFIES;
+
 	mpcb->orig_sk_rcvbuf = meta_sk->sk_rcvbuf;
 	mpcb->orig_sk_sndbuf = meta_sk->sk_sndbuf;
 	mpcb->orig_window_clamp = meta_tp->window_clamp;
@@ -1366,6 +1368,7 @@ int mptcp_add_sock(struct sock *meta_sk, struct sock *sk, u8 loc_id, u8 rem_id,
 		return -EPERM;
 	}
 
+
 	INIT_HLIST_NODE(&tp->mptcp->cb_list);
 
 	tp->mptcp->tp = tp;
@@ -1435,6 +1438,7 @@ int mptcp_add_sock(struct sock *meta_sk, struct sock *sk, u8 loc_id, u8 rem_id,
 			    &sk->sk_v6_daddr,
 			    ntohs(((struct inet_sock *)tp)->inet_dport));
 #endif
+	mpcb->last_sf_close_time = INITIAL_JIFFIES;
 
 	return 0;
 }
@@ -1442,6 +1446,7 @@ int mptcp_add_sock(struct sock *meta_sk, struct sock *sk, u8 loc_id, u8 rem_id,
 void mptcp_del_sock(struct sock *sk)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
+	struct tcp_sock *meta_tp = mptcp_meta_tp(tp);
 	struct mptcp_cb *mpcb;
 
 	if (!tp->mptcp || !tp->mptcp->attached)
@@ -1455,9 +1460,22 @@ void mptcp_del_sock(struct sock *sk)
 	if (mpcb->pm_ops->delete_subflow)
 		mpcb->pm_ops->delete_subflow(sk);
 
-	mptcp_debug("%s: Removing subsock tok %#x pi:%d state %d is_meta? %d\n",
+	mptcp_debug("%s: Removing subsock tok %#x pi:%d state %d is_meta? %d  sf_count %d\n",
 		    __func__, mpcb->mptcp_loc_token, tp->mptcp->path_index,
-		    sk->sk_state, is_meta_sk(sk));
+		    sk->sk_state, is_meta_sk(sk), mptcp_subflow_count(mpcb));
+
+	if (mptcp_subflow_count(mpcb) <= 1 && sock_flag(mptcp_meta_sk(sk), SOCK_KILL_ON_IDLE)) {
+		mpcb->last_sf_close_time = max_t(u32, inet_csk(sk)->icsk_ack.lrcvtime, tp->rcv_tstamp);
+
+		trace_printk("tok: %#x keepalive_time_when %u keepalive_time_elapsed %u\n",
+			mpcb->mptcp_loc_token,
+			jiffies_to_msecs(keepalive_time_when(meta_tp)- INITIAL_JIFFIES),
+			jiffies_to_msecs(keepalive_time_elapsed(meta_tp) - INITIAL_JIFFIES));
+
+		/* if passed, fire ito timer immediately */
+		if (keepalive_time_elapsed(meta_tp) > keepalive_time_when(meta_tp))
+			inet_csk_reset_keepalive_timer(tp->meta_sk, 0);
+	}
 
 	spin_lock(&mpcb->mpcb_list_lock);
 	hlist_del_init_rcu(&tp->mptcp->node);
