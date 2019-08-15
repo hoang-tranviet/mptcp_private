@@ -677,18 +677,34 @@ static void tcp_keepalive_timer (struct timer_list *t)
 		return;
 
 	meta_sk = mptcp(tp) ? mptcp_meta_sk(sk) : sk;
-	if (mptcp(tp)){
-		mpcb = tcp_sk(meta_sk)->mpcb;
-		trace_printk("%s: subflow socket, tok %x\n",
-				__func__, mpcb->mptcp_loc_token);
-	}
+
+	// Initialize mpcb
 	if (is_meta_sk(meta_sk)){
 		mpcb = tp->mpcb;
-		trace_printk("%s: meta socket, tok %x\n",
-				__func__, mpcb->mptcp_loc_token);
+		trace_printk(" meta socket, tok %x, KILL_ON_IDLE %d last_sf %u \n",
+			       mpcb->mptcp_loc_token,
+			       sock_flag(sk, SOCK_KILL_ON_IDLE),
+			       jiffies_to_msecs(mpcb->last_sf_close_time - INITIAL_JIFFIES));
+	} else if (mptcp(tp)){
+		mpcb = tcp_sk(meta_sk)->mpcb;
+		trace_printk(" subflow socket, tok %x, last_sf %u \n",
+			       mpcb->mptcp_loc_token,
+			       jiffies_to_msecs(mpcb->last_sf_close_time - INITIAL_JIFFIES));
 	}
 	if (mpcb)
 		last_sf_close_time = mpcb->last_sf_close_time;
+
+	if (sock_flag(sk, SOCK_KILL_ON_IDLE) && last_sf_close_time) {
+		elapsed = tcp_jiffies32 - last_sf_close_time;
+		trace_printk("token: %x inactive for: %d ms \n",
+			       mpcb->mptcp_loc_token, jiffies_to_msecs(elapsed));
+
+		if (elapsed > keepalive_time_when(tp)) {
+			mptcp_close(meta_sk, 0);
+			goto out;
+		}
+	}
+
 
 	/* Only process if socket is not in use. */
 	bh_lock_sock(meta_sk);
@@ -697,17 +713,6 @@ static void tcp_keepalive_timer (struct timer_list *t)
 		inet_csk_reset_keepalive_timer (sk, HZ/20);
 		goto out;
 	}
-
-	if (sock_flag(sk, SOCK_KILL_ON_IDLE && last_sf_close_time)) {
-		elapsed = tcp_jiffies32 - last_sf_close_time;
-		mptcp_debug("inactivity for: %d s \n", elapsed);
-
-		if (elapsed > keepalive_time_when(tp)) {
-			mptcp_close(meta_sk, 0);
-		}
-		goto out;
-	}
-
 
 	if (sk->sk_state == TCP_LISTEN) {
 		pr_err("Hmm... keepalive on a LISTEN ???\n");
@@ -756,6 +761,8 @@ static void tcp_keepalive_timer (struct timer_list *t)
 	elapsed = keepalive_time_elapsed(tp);
 
 	if (elapsed >= keepalive_time_when(tp)) {
+		trace_printk(" KA timeout fired! elapsed = %u \n",
+			       jiffies_to_msecs(elapsed));
 		/* If the TCP_USER_TIMEOUT option is enabled, use that
 		 * to determine when to timeout instead.
 		 */
@@ -785,6 +792,8 @@ static void tcp_keepalive_timer (struct timer_list *t)
 	sk_mem_reclaim(sk);
 
 resched:
+	trace_printk(" resched: reset timer with elapsed = %u \n",
+		       jiffies_to_msecs(elapsed));
 	inet_csk_reset_keepalive_timer (sk, elapsed);
 	goto out;
 
