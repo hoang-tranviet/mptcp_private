@@ -1293,7 +1293,7 @@ static int mptcp_alloc_mpcb(struct sock *meta_sk, __u64 remote_key,
 
 	mpcb->addr_signal = 1;
 
-	mpcb->last_sf_close_time = 0;
+	mpcb->last_sf_close_time = INITIAL_JIFFIES;
 
 	mpcb->orig_sk_rcvbuf = meta_sk->sk_rcvbuf;
 	mpcb->orig_sk_sndbuf = meta_sk->sk_sndbuf;
@@ -1438,7 +1438,7 @@ int mptcp_add_sock(struct sock *meta_sk, struct sock *sk, u8 loc_id, u8 rem_id,
 			    &sk->sk_v6_daddr,
 			    ntohs(((struct inet_sock *)tp)->inet_dport));
 #endif
-	mpcb->last_sf_close_time = 0;
+	mpcb->last_sf_close_time = INITIAL_JIFFIES;
 
 	return 0;
 }
@@ -1464,7 +1464,7 @@ void mptcp_del_sock(struct sock *sk)
 		    sk->sk_state, is_meta_sk(sk), mptcp_subflow_count(mpcb));
 
 	if (mptcp_subflow_count(mpcb) <= 1)
-		mpcb->last_sf_close_time = tcp_jiffies32;
+		mpcb->last_sf_close_time = max_t(u32, inet_csk(sk)->icsk_ack.lrcvtime, tp->rcv_tstamp);
 
 	spin_lock(&mpcb->mpcb_list_lock);
 	hlist_del_init_rcu(&tp->mptcp->node);
