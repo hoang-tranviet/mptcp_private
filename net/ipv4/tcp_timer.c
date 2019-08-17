@@ -672,7 +672,7 @@ static void tcp_keepalive_timer (struct timer_list *t)
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct sock *meta_sk;
 	struct mptcp_cb *mpcb;
-	u32 elapsed, last_sf_close_time = 0;
+	u32 elapsed, last_sf_close_time = INITIAL_JIFFIES;
 	if (!sk)
 		return;
 
@@ -694,12 +694,11 @@ static void tcp_keepalive_timer (struct timer_list *t)
 	if (mpcb)
 		last_sf_close_time = mpcb->last_sf_close_time;
 
-	if (sock_flag(sk, SOCK_KILL_ON_IDLE) && last_sf_close_time) {
+	if (sock_flag(sk, SOCK_KILL_ON_IDLE) && (last_sf_close_time != INITIAL_JIFFIES)) {
 		elapsed = tcp_jiffies32 - last_sf_close_time;
-		trace_printk("token: %x inactive for: %d ms \n",
-			       mpcb->mptcp_loc_token, jiffies_to_msecs(elapsed));
+		trace_printk("inactive for: %d ms \n", jiffies_to_msecs(elapsed));
 
-		if (elapsed > keepalive_time_when(tp)) {
+		if (elapsed >= keepalive_time_when(tp)) {
 			mptcp_close(meta_sk, 0);
 			goto out;
 		}
@@ -755,8 +754,13 @@ static void tcp_keepalive_timer (struct timer_list *t)
 	elapsed = keepalive_time_when(tp);
 
 	/* It is alive without keepalive 8) */
-	if (tp->packets_out || !tcp_write_queue_empty(sk))
+	if (tp->packets_out || !tcp_write_queue_empty(sk)) {
+		if (is_meta_sk(sk))
+			trace_printk("data stuck in meta socket! %u %u \n",
+				     tp->packets_out, !tcp_write_queue_empty(sk));
+		else
 		goto resched;
+	}
 
 	elapsed = keepalive_time_elapsed(tp);
 
