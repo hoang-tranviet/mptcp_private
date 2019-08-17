@@ -54,7 +54,7 @@ int mptcp_ito(struct bpf_sock_ops *skops)
 		char fmt0[] = "server established\n";
 		bpf_trace_printk(fmt0, sizeof(fmt0));
 
-		ito = 2;
+		ito = 5;
 		rv = bpf_setsockopt(skops, IPPROTO_MPTCP, MPTCP_KILL_ON_IDLE, &ka, sizeof(ka));
 		rv = bpf_setsockopt(skops, IPPROTO_MPTCP, SO_KEEPALIVE, &ka, sizeof(ka));
 		rv = bpf_setsockopt(skops, IPPROTO_MPTCP, TCP_KEEPIDLE, &ito, sizeof(ito));
@@ -75,7 +75,7 @@ int mptcp_ito(struct bpf_sock_ops *skops)
 		/* Enable option write callback on this subflow */
 		//bpf_sock_ops_cb_flags_set( skops, BPF_SOCK_OPS_OPTION_WRITE_FLAG);
 
-		ito = 2;
+		ito = 5;
 		rv = bpf_setsockopt(skops, IPPROTO_MPTCP, MPTCP_KILL_ON_IDLE, &ka, sizeof(ka));
 		rv = bpf_setsockopt(skops, IPPROTO_MPTCP, SO_KEEPALIVE, &ka, sizeof(ka));
 		rv = bpf_setsockopt(skops, IPPROTO_MPTCP, TCP_KEEPIDLE, &ito, sizeof(ito));
