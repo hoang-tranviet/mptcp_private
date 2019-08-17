@@ -679,7 +679,7 @@ static void tcp_keepalive_timer (struct timer_list *t)
 	meta_sk = mptcp(tp) ? mptcp_meta_sk(sk) : sk;
 
 	// Initialize mpcb
-	if (is_meta_sk(meta_sk)){
+	if (is_meta_sk(sk)){
 		mpcb = tp->mpcb;
 		trace_printk(" meta socket, tok %x, KILL_ON_IDLE %d last_sf %u \n",
 			       mpcb->mptcp_loc_token,
@@ -699,8 +699,16 @@ static void tcp_keepalive_timer (struct timer_list *t)
 		trace_printk("inactive for: %d ms \n", jiffies_to_msecs(elapsed));
 
 		if (elapsed >= keepalive_time_when(tp)) {
-			mptcp_close(meta_sk, 0);
-			goto out;
+			/* copied from mptcp_mp_fastclose_rcvd() */
+			mptcp_sub_force_close_all(mpcb, NULL);
+			tcp_reset(meta_sk);
+			/* do we need sock_put(meta_sk)? */
+			if(meta_sk) {
+				trace_printk("meta just closed, state %u refcnt %u \n",
+							sk->sk_state, refcount_read(&sk->sk_refcnt));
+				sock_gen_put(meta_sk);
+			}
+			return;
 		}
 	}
 
