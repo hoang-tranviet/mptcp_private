@@ -85,6 +85,9 @@ int mptcp_ito(struct bpf_sock_ops *skops)
 		bpf_trace_printk(fmt00, sizeof(fmt00), ito);
 		break;
 	}
+        case BPF_MPTCP_NEW_SESSION:
+		bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG);
+
 	case BPF_TCP_OPTIONS_SIZE_CALC:
 		/* args[1] is the second argument */
 		if (skops->args[1] + option_len <= 40) {
@@ -130,6 +133,15 @@ int mptcp_ito(struct bpf_sock_ops *skops)
 
 		break;
 	}
+        case BPF_SOCK_OPS_STATE_CB:
+        {
+                /* skops->args[0] is negated (1 -> -1) in BPF context.
+                 * The state is correct in main kernel, before and after passing args.  Why? */
+                char state[] = "token %x: TCP state from: %u to %u\n";
+                bpf_trace_printk(state, sizeof(state), skops->mptcp_loc_token, skops->args[0], skops->args[1]);
+                break;
+        }
+
 	default:
 		rv = -1;
 	}
