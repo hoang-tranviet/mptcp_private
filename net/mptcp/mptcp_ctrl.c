@@ -1821,11 +1821,6 @@ void mptcp_close(struct sock *meta_sk, long timeout)
 		/* Check zero linger _after_ checking for unread data. */
 		meta_sk->sk_prot->disconnect(meta_sk, 0);
 		NET_INC_STATS(sock_net(meta_sk), LINUX_MIB_TCPABORTONDATA);
-	} else if (mptcp_subflow_count(mpcb) == 0) {
-		// the goal is to call mptcp_sock_destruct() as soon as possible
-		// or more dangerous:
-		// tcp_done(meta_sk);
-		tcp_set_state(meta_sk, TCP_CLOSE);
 	} else if (tcp_close_state(meta_sk)) {
 		mptcp_send_fin(meta_sk);
 	} else if (meta_tp->snd_una == meta_tp->write_seq) {
