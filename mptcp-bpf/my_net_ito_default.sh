@@ -21,6 +21,13 @@
 # |________________|
 #
 
+trap ctrl_c INT
+
+function ctrl_c() {
+        echo "** Trapped CTRL-C, clean up"
+	pkill curl
+}
+
 NS1="ip netns exec ns1 "
 NS2="ip netns exec ns2 "
 NS_BR="ip netns exec nsBr "
@@ -30,13 +37,6 @@ NS_BR="ip netns exec nsBr "
 sysctl -w net.mptcp.mptcp_debug=1
 sysctl -w net.mptcp.mptcp_path_manager=default
 
-
-trap ctrl_c INT
-
-function ctrl_c() {
-        echo "** Trapped CTRL-C, clean up"
-	pkill curl
-}
 
 # Clean
 $NS_BR ip link del ethBr1
@@ -161,8 +161,8 @@ serverIP="10.1.1.1"
 clientIP="10.1.1.2"
 serverPort=80
 
-$NS1  tcpdump -i veth1 -s 120 -w dump_1_server &
-$NS2  tcpdump -i veth2 -s 120 -w dump_2_client &
+#$NS1  tcpdump -i veth1 -s 120 -w dump_1_server &
+#$NS2  tcpdump -i veth2 -s 120 -w dump_2_client &
 
 #$NS1  python3 -m http.server 80 &
 $NS1  nginx -s stop
@@ -175,27 +175,18 @@ for i in {1..1}; do
 	sleep 1
 
 	# tcpkill sniffs ongoing TCP connections and inject RST to both sides
-	$NS2 tcpkill -3  dst $clientIP &> /dev/null  &
+	$NS2 timeout 5  tcpkill -3  dst $clientIP &> /dev/null  &
 done
 
-sleep 10
-echo 10 > netstat.log
+$NS1 netstat -m > netstat.log
+
+
+sleep 1000
+echo 1000  >> netstat.log
 $NS1 netstat -m >> netstat.log
 
-sleep 3600
-echo 3600  >> netstat.log
-$NS1 netstat -m >> netstat.log
-
-sleep 3600
-echo 7200  >> netstat.log
-$NS1 netstat -m >> netstat.log
-
-sleep 3600
-echo 10000  >> netstat.log
-$NS1 netstat -m >> netstat.log
 
 pkill tcpkill
 pkill curl
-
-$NS1  pkill python3
+$NS1  nginx -s stop
 pkill tcpdump
