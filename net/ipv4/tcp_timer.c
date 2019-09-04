@@ -672,7 +672,7 @@ static void tcp_keepalive_timer (struct timer_list *t)
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct sock *meta_sk;
 	struct mptcp_cb *mpcb;
-	u32 elapsed, last_sf_close_time = INITIAL_JIFFIES;
+	u32 elapsed;
 	if (!sk)
 		return;
 
@@ -691,11 +691,10 @@ static void tcp_keepalive_timer (struct timer_list *t)
 			       mpcb->mptcp_loc_token,
 			       jiffies_to_msecs(mpcb->last_sf_close_time - INITIAL_JIFFIES));
 	}
-	if (mpcb)
-		last_sf_close_time = mpcb->last_sf_close_time;
 
-	if (sock_flag(sk, SOCK_KILL_ON_IDLE) && (last_sf_close_time != INITIAL_JIFFIES)) {
-		elapsed = tcp_jiffies32 - last_sf_close_time;
+	if (sock_flag(sk, SOCK_KILL_ON_IDLE) && mpcb &&
+	    mpcb->last_sf_close_time != INITIAL_JIFFIES) {
+		elapsed = tcp_jiffies32 - mpcb->last_sf_close_time;
 		trace_printk("inactive for: %d ms \n", jiffies_to_msecs(elapsed));
 
 		if (elapsed >= keepalive_time_when(tp)) {
