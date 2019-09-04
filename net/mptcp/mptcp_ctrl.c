@@ -1464,7 +1464,7 @@ void mptcp_del_sock(struct sock *sk)
 		    __func__, mpcb->mptcp_loc_token, tp->mptcp->path_index,
 		    sk->sk_state, is_meta_sk(sk), mptcp_subflow_count(mpcb));
 
-	if (mptcp_subflow_count(mpcb) <= 1) {
+	if (mptcp_subflow_count(mpcb) <= 1 && sock_flag(mptcp_meta_sk(sk), SOCK_KILL_ON_IDLE)) {
 		mpcb->last_sf_close_time = max_t(u32, inet_csk(sk)->icsk_ack.lrcvtime, tp->rcv_tstamp);
 
 		trace_printk("tok: %#x keepalive_time_when %u keepalive_time_elapsed %u\n",
