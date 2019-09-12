@@ -20,6 +20,10 @@
 
 int _version SEC("version") = 1;
 
+// in seconds
+#define ITO 240
+#define DEBUG 0
+
 struct mptcp_option {
 	__u8 kind;
 	__u8 len;
@@ -32,7 +36,7 @@ struct mptcp_option mp_opt = {
 	.len = 4,
 	.subtype = 15,
 	.rsv = 0,
-	.data = 100, // ito, in second 
+	.data = ITO,
 };
 
 SEC("sockops")
@@ -49,19 +53,21 @@ int mptcp_ito(struct bpf_sock_ops *skops)
 	op = (int) skops->op;
 
 	switch (op) {
+	/* server side */
 	case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
 	{
 		char fmt0[] = "server established\n";
 		bpf_trace_printk(fmt0, sizeof(fmt0));
 
-		ito = 5;
+		/*
+		ito = ITO;
 		rv = bpf_setsockopt(skops, IPPROTO_MPTCP, MPTCP_KILL_ON_IDLE, &ka, sizeof(ka));
 		rv = bpf_setsockopt(skops, IPPROTO_MPTCP, SO_KEEPALIVE, &ka, sizeof(ka));
 		rv = bpf_setsockopt(skops, IPPROTO_MPTCP, TCP_KEEPIDLE, &ito, sizeof(ito));
+		*/
 
-		ito = 10;
 		rv = bpf_getsockopt(skops, IPPROTO_MPTCP, TCP_KEEPIDLE, &ito, sizeof(ito));
-		char fmt00[] = "server: meta ito = %d  token %x\n";
+		char fmt00[] = "server: meta ito %d  token %x\n";
 		bpf_trace_printk(fmt00, sizeof(fmt00), ito, skops->mptcp_loc_token);
 		break;
 	}
@@ -69,43 +75,42 @@ int mptcp_ito(struct bpf_sock_ops *skops)
 	{
 		unsigned int id = skops->args[0];
 		unsigned int dev_type = skops->args[1];
-		char fmt1[] = "Client: rcv SYN-ACK on subflow: %u \t dev->type: %u  token %x\n";
+		char fmt1[] = "Client: rcv SYN-ACK on sf %u \t dev->type %u  token %x\n";
 		bpf_trace_printk(fmt1, sizeof(fmt1), id, dev_type, skops->mptcp_loc_token);
 
 		/* Enable option write callback on this subflow */
-		//bpf_sock_ops_cb_flags_set( skops, BPF_SOCK_OPS_OPTION_WRITE_FLAG);
+		bpf_sock_ops_cb_flags_set( skops, BPF_SOCK_OPS_OPTION_WRITE_FLAG);
 
-		ito = 5;
+		ito = ITO;
 		rv = bpf_setsockopt(skops, IPPROTO_MPTCP, MPTCP_KILL_ON_IDLE, &ka, sizeof(ka));
 		rv = bpf_setsockopt(skops, IPPROTO_MPTCP, SO_KEEPALIVE, &ka, sizeof(ka));
 		rv = bpf_setsockopt(skops, IPPROTO_MPTCP, TCP_KEEPIDLE, &ito, sizeof(ito));
-		ito = 10;
 		rv = bpf_getsockopt(skops, IPPROTO_MPTCP, TCP_KEEPIDLE, &ito, sizeof(ito));
-		char fmt00[] = "client: meta ito = %d \n";
+		char fmt00[] = "client: ito %d \n";
 		bpf_trace_printk(fmt00, sizeof(fmt00), ito);
 		break;
 	}
         case BPF_MPTCP_NEW_SESSION:
+		/* meta sk level, not interfere with option write flags */
 		bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG);
+		break;
 
 	case BPF_TCP_OPTIONS_SIZE_CALC:
 		/* args[1] is the second argument */
 		if (skops->args[1] + option_len <= 40) {
 			rv = option_len;
-			char fmt4[] = "OPTIONS_SIZE_CALC   original:%d add:%d bytes\n";
+			char fmt4[] = "OPTIONS_SIZE   original:%d add:%d bytes\n";
 			bpf_trace_printk(fmt4, sizeof(fmt4), skops->args[1], option_len);
 		}
 		else rv = 0;
 		break;
 	case BPF_MPTCP_OPTIONS_WRITE:
 	{
-		char fmt3[] = "OPTIONS_WRITE on subflow: %u\n\n";
+		char fmt3[] = "OPTIONS_WRITE on sf %u\n\n";
 		bpf_trace_printk(fmt3, sizeof(fmt3), skops->args[1]);
 
 		int option_buffer;
-		// skops->reply_long = mp_opt;
 		memcpy(&option_buffer, &mp_opt, sizeof(int));
-		/* put the struct option into the reply value */
 		rv = option_buffer;
 
 		bpf_sock_ops_cb_flags_set( skops, 0);
@@ -113,34 +118,33 @@ int mptcp_ito(struct bpf_sock_ops *skops)
 	}
 	case BPF_MPTCP_PARSE_OPTIONS:
 	{
-
-		char fmt00[] = "meta ito = %d \n";
+		char fmt00[] = "server: ito %d \n";
 		rv = bpf_getsockopt(skops, IPPROTO_MPTCP, TCP_KEEPIDLE, &ito, sizeof(ito));
 		bpf_trace_printk(fmt00, sizeof(fmt00), ito);
 
-
-		/* get the parsed option */
 		unsigned int option = bpf_ntohl(skops->args[2]);
 		/* Keep the last 8 bits */
-		ito = (option & 0x000000FF) * 1000;
+		ito = (option & 0x000000FF);
 
-		char fmt10[] = "parse options: %d, %x\n";
-		bpf_trace_printk(fmt10, sizeof(fmt10),  ito, option);
+		char fmt10[] = "parse options: %x,     ito: %d s\n";
+		bpf_trace_printk(fmt10, sizeof(fmt10), option, ito);
 
+		rv = bpf_setsockopt(skops, IPPROTO_MPTCP, MPTCP_KILL_ON_IDLE, &ka, sizeof(ka));
+		rv = bpf_setsockopt(skops, IPPROTO_MPTCP, SO_KEEPALIVE, &ka, sizeof(ka));
 		rv = bpf_setsockopt(skops, IPPROTO_MPTCP, TCP_KEEPIDLE, &ito, sizeof(ito));
+
 		rv = bpf_getsockopt(skops, IPPROTO_MPTCP, TCP_KEEPIDLE, &ito, sizeof(ito));
 		bpf_trace_printk(fmt00, sizeof(fmt00), ito);
 
 		break;
 	}
         case BPF_SOCK_OPS_STATE_CB:
-        {
-                /* skops->args[0] is negated (1 -> -1) in BPF context.
-                 * The state is correct in main kernel, before and after passing args.  Why? */
-                char state[] = "token %x: TCP state from: %u to %u\n";
-                bpf_trace_printk(state, sizeof(state), skops->mptcp_loc_token, skops->args[0], skops->args[1]);
+		if (DEBUG) {
+			char state[] = "token %x: TCP state from: %u to %u\n";
+			bpf_trace_printk(state, sizeof(state), skops->mptcp_loc_token,
+				       skops->args[0], skops->args[1]);
+		}
                 break;
-        }
 
 	default:
 		rv = -1;
